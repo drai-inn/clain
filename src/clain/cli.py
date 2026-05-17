@@ -121,62 +121,87 @@ def _load_classify_or_exit(resolved: Path) -> dict[str, object]:
     return payload
 
 
-def _emit_plan(plan: dict[str, object], json_out: bool, execute: bool) -> None:
-    if execute:
-        try:
-            try_execute(plan)
-        except ExecuteGateClosed as exc:
-            err_console.print(f"[red]{exc}[/red]")
-            raise typer.Exit(code=2) from exc
+def _emit_plan(plan: dict[str, object], json_out: bool, dry: bool) -> None:
+    """Render + persist the plan, then attempt execution unless --dry was passed.
 
+    Execution is the default behaviour. The phase gate in `clain.executor`
+    blocks it for now and raises ExecuteGateClosed, which we surface as a Rich
+    error with a pointer to --dry.
+    """
     saved = planmod.persist_plan(plan)
+
     if json_out:
         sys.stdout.write(json.dumps(plan, indent=2, sort_keys=True))
         sys.stdout.write("\n")
+    else:
+        unsafe = unsafe_actions_table(plan)
+        if unsafe is not None:
+            console.print(unsafe)
+            console.print()
+        console.print(plan_table(plan))
+        console.print(plan_footer(plan, str(saved)))
+
+    if dry:
+        if not json_out:
+            console.print("[dim](dry mode — execution skipped)[/dim]")
         return
 
-    unsafe = unsafe_actions_table(plan)
-    if unsafe is not None:
-        console.print(unsafe)
-        console.print()
-    console.print(plan_table(plan))
-    console.print(plan_footer(plan, str(saved)))
+    # Execution path. Currently always blocked by the phase gate.
+    try:
+        try_execute(plan)
+    except ExecuteGateClosed as exc:
+        err_console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+
     if not EXECUTE_ENABLED:
-        console.print("[dim]Dry-run only — execution gate is closed (see executor.py).[/dim]")
+        # Defensive: try_execute should have raised already.
+        console.print("[dim](execution gate closed — no actions taken)[/dim]")
 
 
 @plan_app.command("recreate")
 def plan_recreate(
     root: Path | None = typer.Argument(None, help="Root previously classified."),
     json_out: bool = typer.Option(False, "--json", help="Emit plan JSON to stdout."),
-    execute: bool = typer.Option(False, "--execute", help="Currently disabled by phase gate (see executor.py)."),
+    dry: bool = typer.Option(False, "--dry", help="Preview only — render the plan and stop before any execution."),
 ) -> None:
-    """Delete + recreate plan for cache-managed/ephemeral/bytecode subtrees."""
+    """Delete + recreate plan for cache-managed/ephemeral/bytecode subtrees.
+
+    Default behaviour is to attempt execution; --dry stops after rendering.
+    Execution is currently blocked by the development-phase gate
+    (src/clain/executor.py:EXECUTE_ENABLED) and will error until a future
+    spec lifts the gate.
+    """
     resolved = _resolve_or_exit(root)
     classify_payload = _load_classify_or_exit(resolved)
     plan = planmod.build_recreate_plan(classify_payload)
-    _emit_plan(plan, json_out, execute)
+    _emit_plan(plan, json_out, dry)
 
 
 @plan_app.command("move")
 def plan_move(
     root: Path | None = typer.Argument(None, help="Root previously classified."),
-    destination: Path | None = typer.Option(
+    dest: Path | None = typer.Option(
         None,
-        "--destination",
-        help="Destination root for moved workspaces. Required for plan move.",
+        "--dest",
+        help="Destination root for moved workspaces. Required.",
     ),
     json_out: bool = typer.Option(False, "--json", help="Emit plan JSON to stdout."),
-    execute: bool = typer.Option(False, "--execute", help="Currently disabled by phase gate (see executor.py)."),
+    dry: bool = typer.Option(False, "--dry", help="Preview only — render the plan and stop before any execution."),
 ) -> None:
-    """Move + triage plan for workspaces sitting in the synced tree."""
-    if destination is None:
-        err_console.print("[red]--destination is required for plan move (e.g. --destination ~/dev/).[/red]")
+    """Move + triage plan for workspaces sitting in the synced tree.
+
+    Default behaviour is to attempt execution; --dry stops after rendering.
+    Execution is currently blocked by the development-phase gate
+    (src/clain/executor.py:EXECUTE_ENABLED) and will error until a future
+    spec lifts the gate.
+    """
+    if dest is None:
+        err_console.print("[red]--dest is required for plan move (e.g. --dest ~/dev/).[/red]")
         raise typer.Exit(code=2)
     resolved = _resolve_or_exit(root)
     classify_payload = _load_classify_or_exit(resolved)
-    plan = planmod.build_move_plan(classify_payload, destination.expanduser().resolve())
-    _emit_plan(plan, json_out, execute)
+    plan = planmod.build_move_plan(classify_payload, dest.expanduser().resolve())
+    _emit_plan(plan, json_out, dry)
 
 
 @plan_app.command("explain")

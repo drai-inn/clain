@@ -1,10 +1,31 @@
 ---
 id: 0005
-title: Executable plan model — delete+recreate and move+triage actions, dry-run by default, gated execute
+title: Executable plan model — delete+recreate and move+triage actions, execute by default, gated; `--dry` opts into preview
 status: shipped
 goal: Goal 2 (Deliberate execution) and Goal 3 (Two action categories, fully covered); supports Goal 4 (Deliberate consolidation)
 supersedes: previously-shipped 0005 (Duplication detection) — dropped wholesale; previously-shipped 0006 (Recommendations) — superseded by this executable model
+amended: 2026-05-18 — flag semantics inverted. Execution is the **default**; `--dry` opts into preview. `--execute` removed. `--destination` → `--dest`. Phase gate unchanged.
 ---
+
+## Flag semantics (amendment, 2026-05-18)
+
+The original spec said "Plans default to dry-run; `--execute` opts in." That is reversed:
+
+- **Default** — render the plan, persist it, then attempt execution. While `EXECUTE_ENABLED = False`, this attempt raises `ExecuteGateClosed`; the CLI catches it and renders a Rich error pointing the user at `--dry`. The user always sees their plan before the gate error fires.
+- **`--dry`** — render the plan, persist it, **stop**. No execution attempt, no gate error. The safe-preview mode.
+- **`--execute` removed.** Execution is implicit in the default behaviour. No flag is required to opt into the primary capability once the gate is lifted.
+
+The phase-gate invariant is unchanged: while `EXECUTE_ENABLED = False`, no real execution can occur regardless of flag posture. The future spec 00NN — *Lift the dry-run gate* — remains the only way to enable real execution. The flag change is a CLI-surface change only.
+
+Related: `--destination` shortened to `--dest`. Multi-word flags remain only where no good single-word form exists (e.g. `--no-cache`, `--workspace`).
+
+Additional acceptance bullets:
+
+- [x] `clain plan recreate` with no flags renders the plan, then fails with the gate error pointing at `--dry`.
+- [x] `clain plan recreate --dry` renders the plan and exits 0.
+- [x] `clain plan move --dest <path>` is the spelling; `--destination` is not accepted.
+- [x] `--execute` is not a recognised flag.
+- [x] Tests updated: `test_cli_plan_recreate_default_attempts_execute_and_is_gated` and `test_cli_plan_recreate_dry_exits_zero` replace the old `test_cli_plan_recreate_execute_blocked`.
 
 ## Problem
 

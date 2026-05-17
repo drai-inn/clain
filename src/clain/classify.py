@@ -4,6 +4,10 @@ Walks each workspace only down to the first directory matching a known class,
 then prunes. Records (class, relative_path) tuples plus the manifests present
 at the workspace root. Never stats individual files; never recurses into
 class-tagged subtrees.
+
+Class and manifest definitions come from the rule base (`rules.toml`) loaded
+via `clain.rules_loader.load_rules`. Pass an explicit `Rules` to `run_classify`
+for fixture-based testing; otherwise the packaged default is used.
 """
 
 from __future__ import annotations
@@ -16,8 +20,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from clain.classes import ALL_CLASS_DIRS, MANIFEST_FILES, classify_dirname
 from clain.config import CACHE_TTL_SECONDS
+from clain.rules_loader import Rules, load_rules
 from clain.state import (
     append_log,
     classify_cache_path,
@@ -69,12 +73,13 @@ def _iter_workspaces(root: Path) -> Iterator[Path]:
         return
 
 
-def _detect_manifests(workspace: Path) -> list[str]:
+def _detect_manifests(workspace: Path, rules: Rules) -> list[str]:
+    detect = set(rules.manifests_to_detect)
     found: list[str] = []
     try:
         with os.scandir(workspace) as it:
             for entry in it:
-                if entry.name in MANIFEST_FILES and entry.is_file(follow_symlinks=False):
+                if entry.name in detect and entry.is_file(follow_symlinks=False):
                     found.append(entry.name)
     except OSError:
         pass
@@ -89,13 +94,13 @@ def _is_under(path: Path, root: Path) -> bool:
         return False
 
 
-def classify_workspace(workspace: Path, synced_root: Path) -> WorkspaceClass:
+def classify_workspace(workspace: Path, synced_root: Path, rules: Rules) -> WorkspaceClass:
     """Walk a workspace, prune at class boundaries, record tags + manifests."""
     result = WorkspaceClass(
         name=workspace.name,
         path=str(workspace),
         in_sync_tree=_is_under(workspace, synced_root),
-        manifests=_detect_manifests(workspace),
+        manifests=_detect_manifests(workspace, rules),
     )
 
     walker_errors: list[str] = []
@@ -104,31 +109,32 @@ def classify_workspace(workspace: Path, synced_root: Path) -> WorkspaceClass:
         walker_errors.append(f"walk: {exc}")
 
     for dirpath, dirnames, _filenames in os.walk(workspace, followlinks=False, onerror=_onerror):
-        # Find class dirs at this level, record them, prune them.
         keep: list[str] = []
         for d in dirnames:
-            cls = classify_dirname(d)
+            cls = rules.class_of(d)
             if cls is not None:
                 rel = (Path(dirpath) / d).relative_to(workspace)
                 result.class_tags.append(ClassTag(cls=cls, relative_path=str(rel)))
             else:
                 keep.append(d)
-        # Mutate in place so os.walk skips the class dirs.
         dirnames[:] = keep
 
     result.errors.extend(walker_errors)
     return result
 
 
-def run_classify(root: Path, synced_root: Path) -> dict[str, Any]:
+def run_classify(root: Path, synced_root: Path, rules: Rules | None = None) -> dict[str, Any]:
     if not root.exists():
         raise FileNotFoundError(f"Root does not exist: {root}")
     if not root.is_dir():
         raise NotADirectoryError(f"Root is not a directory: {root}")
 
+    rules = rules or load_rules()
+
     started = time.time()
     workspaces = [
-        classify_workspace(ws, synced_root) for ws in sorted(_iter_workspaces(root), key=lambda p: p.name.lower())
+        classify_workspace(ws, synced_root, rules)
+        for ws in sorted(_iter_workspaces(root), key=lambda p: p.name.lower())
     ]
     ended = time.time()
 
@@ -141,7 +147,8 @@ def run_classify(root: Path, synced_root: Path) -> dict[str, Any]:
             "started_at": datetime.fromtimestamp(started, tz=UTC).isoformat(timespec="seconds"),
             "ended_at": datetime.fromtimestamp(ended, tz=UTC).isoformat(timespec="seconds"),
             "duration_seconds": round(ended - started, 3),
-            "class_dirs_considered": sorted(ALL_CLASS_DIRS),
+            "class_dirs_considered": sorted(rules.all_class_dirs),
+            "rules_schema": rules.schema,
             "total_class_tags": total_tags,
         },
         "workspaces": [w.to_dict() for w in workspaces],
@@ -181,14 +188,19 @@ def log_run(root: Path, payload: dict[str, Any]) -> None:
 
 
 def get_or_run(
-    root: Path, synced_root: Path, *, refresh: bool = False, use_cache: bool = True
+    root: Path,
+    synced_root: Path,
+    *,
+    refresh: bool = False,
+    use_cache: bool = True,
+    rules: Rules | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Return (payload, cache_hit)."""
     if use_cache and not refresh:
         cached = load_cached(root)
         if cached is not None and cache_is_fresh(cached):
             return cached, True
-    payload = run_classify(root, synced_root)
+    payload = run_classify(root, synced_root, rules)
     if use_cache:
         save_cache(root, payload)
     log_run(root, payload)

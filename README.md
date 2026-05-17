@@ -16,7 +16,7 @@ Plans are JSON artefacts saved to `$XDG_STATE_HOME/clain/plans/`. Each action ha
 
 ## Phase-gated execution
 
-`--execute` exists as a flag but is currently rejected by a development-phase gate (`EXECUTE_ENABLED = False` in [src/clain/executor.py](src/clain/executor.py)). Lifting it requires a future spec named *00NN — Lift the dry-run gate*, which must specify rollback, audit, and additional safety mechanisms. The dry-run output stays useful regardless — copy/paste commands as needed.
+Execution is the **default** behaviour of `clain plan`. While the development-phase gate is closed (`EXECUTE_ENABLED = False` in [src/clain/executor.py](src/clain/executor.py)), every default-mode invocation renders the plan, then errors with a pointer to `--dry`. Lifting the gate requires a future spec named *00NN — Lift the dry-run gate*, which must specify rollback, audit, and additional safety mechanisms. Use `--dry` to preview cleanly today.
 
 ## Quickstart
 
@@ -26,18 +26,20 @@ Requires [Pixi](https://pixi.sh/) and Python 3.12+.
 pixi install
 export CLAIN_DEV_ROOT=~/some/dev/tree   # required — no personal-info default baked in
 pixi run clain classify
-pixi run clain plan recreate
-pixi run clain plan move --destination ~/dev/
+pixi run clain plan recreate --dry
+pixi run clain plan move --dest ~/dev/ --dry
 ```
 
 ## Subcommands
 
 ```
 clain classify [ROOT] [--json] [--workspace NAME] [--refresh] [--no-cache]
-clain plan recreate [ROOT] [--json] [--execute]
-clain plan move [ROOT] [--destination DIR] [--json] [--execute]
+clain plan recreate [ROOT] [--json] [--dry]
+clain plan move [ROOT] [--dest DIR] [--json] [--dry]
 clain plan explain ACTION_ID [--plan FILE]
 ```
+
+Execution is the default for `plan recreate` / `plan move`. Pass `--dry` to render the plan without attempting execution. While the phase gate is closed, default-mode invocations error after rendering — use `--dry` to suppress the error and stop after the preview.
 
 All accept `ROOT` positionally, fall back to `$CLAIN_DEV_ROOT`, and error if neither is set. Use `$CLAIN_SYNCED_ROOT` to mark a separate path as "the synced tree" for the `in_sync_tree` test (defaults to `CLAIN_DEV_ROOT`).
 

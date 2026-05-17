@@ -4,7 +4,26 @@ title: Categorical workspace classification scan
 status: shipped
 goal: Goal 1 (Categorical visibility) — establishes the categorical view that all later planning depends on
 supersedes: previously-shipped 0004 (Inventory of synced tree), now retracted along with its quantitative model
+amended: 2026-05-18 — class membership moved into a data-driven rule base (`src/clain/rules.toml`) loaded by `clain.rules_loader`. See "Rule base" section.
 ---
+
+## Rule base (amendment, 2026-05-18)
+
+Class membership, the list of manifests to detect, manifest→recreate command mappings, and ecosystem placement advice all live in **`src/clain/rules.toml`**. The file is loaded and validated by `clain.rules_loader.load_rules()`, which exposes a typed `Rules` value to consumers. The file is schema-versioned (`schema = 1`) and is packaged with the wheel.
+
+Properties:
+
+- **Editable by hand or by genAI.** TOML, with a comment header explaining maintenance expectations. Each section (`[[classes]]`, `[manifests]`, `[[recreate_rules]]`, `[[placements]]`) is its own block.
+- **Modular.** Consumers (`clain.classify`, `clain.plan`) take a `Rules` value as an optional parameter; the default-loaded singleton is used when omitted. Tests inject fixture rule bases via `load_rules(path=...)`.
+- **Testable.** `tests/test_rules_loader.py` covers schema validation, duplicate-directory rejection, priority ordering, and the unsafe-rule contract.
+- **Extensible at source.** Adding a class or recreate rule is a normal source change subject to the PR review process (spec 0006). The loader refuses to load if the same directory name appears in more than one class.
+- **Priority semantics.** Recreate rules have an integer `priority` (lower wins). The loader sorts them once at load time; consumers walk the list and take the first matching rule.
+
+Additional acceptance bullets (extending the original list below):
+
+- [x] `src/clain/rules.toml` exists, validates, and is packaged in the wheel via `[tool.hatch.build.targets.wheel.force-include]`.
+- [x] `tests/test_rules_loader.py` exercises: schema-version mismatch, duplicate-dirname rejection, invalid `default_action` rejection, priority ordering, missing-file failure.
+- [x] `clain.classes` and `clain.placements` modules deleted; consumers use `clain.rules_loader` instead.
 
 ## Problem
 

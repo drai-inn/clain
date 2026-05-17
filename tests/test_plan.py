@@ -121,28 +121,40 @@ def test_cli_plan_recreate_requires_classify(tmp_path: Path) -> None:
 
 
 def test_cli_plan_recreate_persists(tmp_path: Path) -> None:
+    """--dry --json: produces JSON output, persists the plan, exits 0."""
     root = tmp_path / "dev"
     root.mkdir()
     make_node_workspace(root, "alpha", lockfile="pnpm-lock.yaml")
-    # Run classify first.
     runner.invoke(app, ["classify", str(root), "--json"])
-    result = runner.invoke(app, ["plan", "recreate", str(root), "--json"])
+    result = runner.invoke(app, ["plan", "recreate", str(root), "--dry", "--json"])
     assert result.exit_code == 0, result.output
     plan = json.loads(result.stdout)
     assert plan["kind"] == "recreate"
     assert plan["summary"]["action_count"] > 0
 
 
-def test_cli_plan_recreate_execute_blocked(tmp_path: Path) -> None:
+def test_cli_plan_recreate_default_attempts_execute_and_is_gated(tmp_path: Path) -> None:
+    """Default behaviour (no --dry) attempts execution; the gate must block it
+    and point the user at --dry.
+    """
     root = tmp_path / "dev"
     root.mkdir()
     make_node_workspace(root, "alpha", lockfile="pnpm-lock.yaml")
     runner.invoke(app, ["classify", str(root)])
-    result = runner.invoke(app, ["plan", "recreate", str(root), "--execute"])
+    result = runner.invoke(app, ["plan", "recreate", str(root)])
     assert result.exit_code != 0
-    # The gate error must name the future spec.
     combined = result.output + (result.stderr or "")
     assert "00NN" in combined or "Lift the dry-run gate" in combined
+    assert "--dry" in combined
+
+
+def test_cli_plan_recreate_dry_exits_zero(tmp_path: Path) -> None:
+    root = tmp_path / "dev"
+    root.mkdir()
+    make_node_workspace(root, "alpha", lockfile="pnpm-lock.yaml")
+    runner.invoke(app, ["classify", str(root)])
+    result = runner.invoke(app, ["plan", "recreate", str(root), "--dry"])
+    assert result.exit_code == 0, result.output
 
 
 def test_executor_module_imports_no_banned_modules() -> None:

@@ -16,6 +16,10 @@ A `SessionStart` hook prints INTENT and active spec headers into context automat
 
 State and outputs live under `$XDG_STATE_HOME/clain/` (caches, plans, logs). Never inside the project working tree, never inside the Google-Drive-synced tree.
 
+## Rule base (data-driven)
+
+Class membership, manifest→recreate command mappings, and ecosystem placement advice live in [src/clain/rules.toml](src/clain/rules.toml) and are loaded by [src/clain/rules_loader.py](src/clain/rules_loader.py). The file is schema-versioned, hand- and genAI-editable, and packaged with the wheel. Adding a class or recreate rule is a normal source change subject to PR review per spec 0006. The loader refuses to load if the same directory name appears in more than one class.
+
 ## Current model (categorical, not quantitative)
 
 Per [spec 0004](specs/0004-classification-scan.md), `clain` operates on directory **classes** rather than file sizes:
@@ -31,12 +35,13 @@ The scan stops at the first class boundary — no recursion into `node_modules` 
 
 ## Plans are executable; execution is phase-gated
 
-Per [spec 0005](specs/0005-executable-plan-model.md), `clain plan {recreate,move}` produces a JSON plan of actions (with `commands`, `safe_to_execute`, `unsafe_reason` per action). Dry-run is the default.
+Per [spec 0005](specs/0005-executable-plan-model.md), `clain plan {recreate,move}` produces a JSON plan of actions (with `commands`, `safe_to_execute`, `unsafe_reason` per action). **Execution is the default**; `--dry` opts into preview-only.
 
-`--execute` is recognised but currently rejected by a **phase gate** (`EXECUTE_ENABLED = False` in [src/clain/executor.py](src/clain/executor.py)). Lifting the gate requires a named future spec — *00NN — Lift the dry-run gate* — which must specify rollback, audit, and additional safety mechanisms. Editing `EXECUTE_ENABLED` outside that workflow is a process violation.
+While `EXECUTE_ENABLED = False` in [src/clain/executor.py](src/clain/executor.py), every default-mode invocation renders the plan, then raises `ExecuteGateClosed`. The CLI catches it and points the user at `--dry`. Lifting the gate requires a named future spec — *00NN — Lift the dry-run gate* — which must specify rollback, audit, and additional safety mechanisms. Editing `EXECUTE_ENABLED` outside that workflow is a process violation.
 
 Tests that enforce the gate:
-- `test_cli_plan_recreate_execute_blocked` — runtime check.
+- `test_cli_plan_recreate_default_attempts_execute_and_is_gated` — runtime check.
+- `test_cli_plan_recreate_dry_exits_zero` — `--dry` bypasses the gate cleanly.
 - `test_executor_module_imports_no_banned_modules` — static check on imports (no `subprocess`, network, clipboard, `shutil`).
 
 ## Spec-driven workflow
@@ -78,8 +83,8 @@ Anything `clain` generates lives under `$XDG_STATE_HOME/clain/`. The repo itself
 pixi install                          # install env from pixi.toml
 pixi run clain --version              # 0.0.1
 pixi run clain classify ~/some/root   # categorical scan
-pixi run clain plan recreate ~/...    # delete + recreate plan (dry-run)
-pixi run clain plan move ~/... --destination ~/dev/   # move + triage plan
+pixi run clain plan recreate ~/... --dry             # preview only (safe default during phase gate)
+pixi run clain plan move ~/... --dest ~/dev/ --dry   # preview move plan
 pixi run -e dev test                  # pytest
 pixi run -e dev lint                  # ruff check + format check
 pixi run -e dev typecheck             # mypy --strict

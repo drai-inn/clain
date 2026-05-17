@@ -6,9 +6,14 @@ filesystem-mutating-against-ROOT facility. A static import-graph test asserts
 this. A runtime test asserts that calling `try_execute` raises with a clear
 message that names the future spec 00NN as the only way to lift the gate.
 
+Default CLI behaviour is to attempt execution; `--dry` opts out into preview
+mode. While the gate is closed, the attempted execution turns into this
+module's `ExecuteGateClosed` error, which the CLI catches and renders with a
+pointer to `--dry`.
+
 To lift the gate, a future spec named "00NN — Lift the dry-run gate" must:
 - explicitly authorise the change,
-- add the additional safety mechanisms (signed-commit checks, clean-tree
+- add additional safety mechanisms (signed-commit checks, clean-tree
   checks, rollback path, audit-log requirements, etc.),
 - and only then flip `EXECUTE_ENABLED` to True in a reviewed PR.
 
@@ -21,15 +26,16 @@ EXECUTE_ENABLED: bool = False
 
 GATE_ERROR_MESSAGE = (
     "Execution is currently disabled by the development-phase gate "
-    "(see src/clain/executor.py:EXECUTE_ENABLED). Lifting the gate requires "
-    "spec 00NN — Lift the dry-run gate — which must specify rollback, "
-    "audit requirements, and additional safety mechanisms. Re-run without "
-    "--execute to see the dry-run plan."
+    "(see src/clain/executor.py:EXECUTE_ENABLED). The plan above was not "
+    "executed. Re-run with --dry to preview without triggering this error, "
+    "or wait for spec 00NN — Lift the dry-run gate — which must specify "
+    "rollback, audit requirements, and additional safety mechanisms before "
+    "the gate is flipped."
 )
 
 
 class ExecuteGateClosed(RuntimeError):
-    """Raised when --execute is requested but EXECUTE_ENABLED is False."""
+    """Raised when execution is attempted but EXECUTE_ENABLED is False."""
 
 
 def try_execute(_plan: dict[str, object]) -> None:
