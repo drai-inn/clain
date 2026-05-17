@@ -2,66 +2,50 @@
 
 Manage local AI-dev workspaces — categorical visibility, deliberate execution.
 
-See [INTENT.md](INTENT.md) for the project's mission and goals, and [specs/](specs/) for the active design specs. Architecture is fixed by [spec 0001](specs/0001-architecture.md): a portable Python CLI named `clain` (Pixi-managed) plus a thin Claude Code plugin wrapper.
+`clain` reads a tree of developer workspaces, classifies each subtree by kind (cache-managed, ephemeral, bytecode, workspace-source), and emits *executable plans* for tidying it up. Plans are reviewable artefacts; execution is gated until a future spec authorises it.
 
-## What it does
+See [INTENT.md](INTENT.md) for the mission and goals.
 
-`clain` reads your AI-dev workspace tree and produces *executable plans* for tidying it up — without executing them yet.
+---
 
-1. **Classify** — recognise the kind of each subtree (cache-managed, ephemeral, bytecode, or workspace-source). Stops at class boundaries; no expensive file walks.
-2. **Plan recreate** — for cache-managed / ephemeral / bytecode subtrees: a delete + recreate plan, with the recreate command derived from the workspace's manifest (`pixi.toml` → `pixi install`, `pnpm-lock.yaml` → `pnpm install --frozen-lockfile`, etc.).
-3. **Plan move** — for workspaces sitting in a synced tree (e.g. Google Drive): a move plan to relocate them to a local home, with integrity smoke tests (venvs embed absolute paths, lockfiles, `.envrc`, docker-compose) flagged as preconditions.
+## Three ways in
 
-Plans are JSON artefacts saved to `$XDG_STATE_HOME/clain/plans/`. Each action has `commands`, `safe_to_execute`, and `unsafe_reason` fields, so you can read what would happen, why, and where it's risky — before anyone touches anything.
-
-## Phase-gated execution
-
-Execution is the **default** behaviour of `clain plan`. While the development-phase gate is closed (`EXECUTE_ENABLED = False` in [src/clain/executor.py](src/clain/executor.py)), every default-mode invocation renders the plan, then errors with a pointer to `--dry`. Lifting the gate requires a future spec named *00NN — Lift the dry-run gate*, which must specify rollback, audit, and additional safety mechanisms. Use `--dry` to preview cleanly today.
-
-## Quickstart
-
-Requires [Pixi](https://pixi.sh/) and Python 3.12+.
+### I just want to run the CLI
 
 ```sh
 pixi install
-export CLAIN_DEV_ROOT=~/some/dev/tree   # required — no personal-info default baked in
+export CLAIN_DEV_ROOT=~/some/dev/tree   # no personal-info default baked in
 pixi run clain classify
 pixi run clain plan recreate --dry
 pixi run clain plan move --dest ~/dev/ --dry
 ```
 
-## Subcommands
+The full walkthrough — first run, reading the output, common scenarios, customising the rule base — is in [docs/USAGE.md](docs/USAGE.md).
 
-```
-clain classify [ROOT] [--json] [--workspace NAME] [--refresh] [--no-cache]
-clain plan recreate [ROOT] [--json] [--dry]
-clain plan move [ROOT] [--dest DIR] [--json] [--dry]
-clain plan explain ACTION_ID [--plan FILE]
-```
+### I want my AI agent to drive this
 
-Execution is the default for `plan recreate` / `plan move`. Pass `--dry` to render the plan without attempting execution. While the phase gate is closed, default-mode invocations error after rendering — use `--dry` to suppress the error and stop after the preview.
+`clain` ships skills in the cross-agent [Agent Skills](https://agentskills.io) format under [`skills/`](skills/). Any Agent Skills-compatible agent (Claude Code, Cursor, Aider, Cline, Continue, OpenCode, …) picks them up automatically. See [AGENTS.md](AGENTS.md) for the agent-onboarding brief.
 
-All accept `ROOT` positionally, fall back to `$CLAIN_DEV_ROOT`, and error if neither is set. Use `$CLAIN_SYNCED_ROOT` to mark a separate path as "the synced tree" for the `in_sync_tree` test (defaults to `CLAIN_DEV_ROOT`).
+### I want to extend or contribute
+
+The project is spec-driven. Every non-trivial change starts as a numbered spec under [`specs/`](specs/), reaches an *aligned* goal-advisor verdict, and lands via a feature-branch + PR. The full developer workflow — PR template, quality gates, rule-base extension rules, skill-authoring constraints — is in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
 
 ## State location
 
-Everything `clain` writes lives under `$XDG_STATE_HOME/clain/` (default `~/.local/state/clain/`):
+Caches, plans, and logs land under `$XDG_STATE_HOME/clain/` (default `~/.local/state/clain/`):
 
 - `classify/<root-hash>.json` — classification cache (24h TTL).
 - `plans/<kind>-<UTC>.json` — every generated plan, timestamped.
 - `logs/{classify,plan}.log` — audit lines.
 
-Nothing is written under the scanned root. The full mutation-vector ban list is enforced by tests.
+Nothing is written under the scanned root. The mutation-vector ban list is enforced by tests.
 
-## Development
+## Phase-gated execution
 
-```sh
-pixi run -e dev test          # pytest
-pixi run -e dev lint          # ruff check + format check
-pixi run -e dev fmt           # ruff format
-pixi run -e dev typecheck     # mypy --strict
-```
+Execution is the **default** behaviour of `clain plan`. While the development-phase gate is closed (`EXECUTE_ENABLED = False` in [src/clain/executor.py](src/clain/executor.py)), default-mode invocations render the plan and then error with a pointer to `--dry`. Lifting the gate requires a future spec named *00NN — Lift the dry-run gate*, which must specify rollback, audit, and additional safety mechanisms. Use `--dry` to preview cleanly today.
 
-## Status
+## License
 
-Specs 0001–0005 shipped; spec 0006 (git/GitHub workflow) is the workflow this repo now follows.
+[MIT](LICENSE).
