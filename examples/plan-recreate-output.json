@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "kind": "recreate",
+  "generated_at": "2026-05-18T10:16:01+00:00",
+  "root": "/example/dev",
+  "rules_schema": 1,
+  "classify_cache_id": "/example/dev|2026-05-18T10:15:32+00:00",
+  "summary": {
+    "action_count": 5,
+    "unsafe_count": 1,
+    "workspace_count": 3
+  },
+  "actions": [
+    {
+      "id": "abc123def456",
+      "workspace": "example-frontend",
+      "type": "delete",
+      "target": "/example/dev/example-frontend/node_modules",
+      "class": "cache-managed",
+      "rationale": "Cache-managed dir — belongs in a single store per ecosystem, outside the synced tree. Evidence: package.json, pnpm-lock.yaml. Placement: ~/Library/pnpm/store on macOS — single content-addressable store shared across all projects.",
+      "commands": ["rm -rf '/example/dev/example-frontend/node_modules'"],
+      "preconditions": [],
+      "safe_to_execute": true,
+      "unsafe_reason": null
+    },
+    {
+      "id": "ghi789jkl012",
+      "workspace": "example-frontend",
+      "type": "recreate",
+      "target": "/example/dev/example-frontend",
+      "class": "cache-managed",
+      "rationale": "Cache-managed dir — belongs in a single store per ecosystem, outside the synced tree. Evidence: package.json, pnpm-lock.yaml. Placement: ~/Library/pnpm/store on macOS — single content-addressable store shared across all projects.",
+      "commands": ["pnpm install --frozen-lockfile"],
+      "preconditions": [
+        "delete action for '/example/dev/example-frontend/node_modules' must complete first"
+      ],
+      "safe_to_execute": true,
+      "unsafe_reason": null
+    },
+    {
+      "id": "mno345pqr678",
+      "workspace": "example-pipeline",
+      "type": "recreate",
+      "target": "/example/dev/example-pipeline",
+      "class": "cache-managed",
+      "rationale": "Cache-managed dir — belongs in a single store per ecosystem, outside the synced tree. Evidence: pixi.toml, pyproject.toml.",
+      "commands": ["pixi install"],
+      "preconditions": [
+        "delete action for '/example/dev/example-pipeline/.venv' must complete first"
+      ],
+      "safe_to_execute": true,
+      "unsafe_reason": null
+    },
+    {
+      "id": "stu901vwx234",
+      "workspace": "example-ambiguous-py",
+      "type": "delete",
+      "target": "/example/dev/example-ambiguous-py/.venv",
+      "class": "cache-managed",
+      "rationale": "Cache-managed dir — belongs in a single store per ecosystem, outside the synced tree. Evidence: pyproject.toml.",
+      "commands": ["rm -rf '/example/dev/example-ambiguous-py/.venv'"],
+      "preconditions": [],
+      "safe_to_execute": false,
+      "unsafe_reason": "ambiguous Python toolchain — workspace has pyproject.toml but no pixi.toml / uv.lock / poetry.lock"
+    },
+    {
+      "id": "yza567bcd890",
+      "workspace": "example-ambiguous-py",
+      "type": "recreate",
+      "target": "/example/dev/example-ambiguous-py",
+      "class": "cache-managed",
+      "rationale": "Cache-managed dir — belongs in a single store per ecosystem, outside the synced tree. Evidence: pyproject.toml.",
+      "commands": ["# ambiguous: pick one of pixi/uv/poetry, then re-run plan"],
+      "preconditions": [
+        "delete action for '/example/dev/example-ambiguous-py/.venv' must complete first"
+      ],
+      "safe_to_execute": false,
+      "unsafe_reason": "ambiguous Python toolchain — workspace has pyproject.toml but no pixi.toml / uv.lock / poetry.lock"
+    }
+  ]
+}

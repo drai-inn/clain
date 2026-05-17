@@ -1,33 +1,7 @@
 # clain (Claude Code plugin)
 
-Thin Claude Code wrapper over the `clain` CLI.
+Claude-Code-specific packaging of `clain`. The actual skills live in [`../skills/`](../skills/) and conform to the [Agent Skills](https://agentskills.io) specification — they work with any Agent Skills-compatible agent, not just Claude Code.
 
-## Boundary rule (load-bearing)
+The `plugin/skills/` directory under this folder contains **symlinks** back to `../../skills/<name>/` as a compatibility shim for the current Claude Code plugin loader. There is no separate copy of any skill body here, and there must not be.
 
-Per [spec 0001](../specs/0001-architecture.md), this plugin **must not** contain business logic. Skills, agents, commands, and hooks here may orchestrate, prompt, summarise, and render. They may **not** decide what to delete, compute what is duplicated, touch the filesystem, or hold any logic that isn't also reachable from the `clain` CLI binary. Any contribution that violates this rule is rejected on first read.
-
-If a skill needs behaviour the CLI doesn't expose, the fix is to add a CLI subcommand first (via a spec), then have the skill shell out to it.
-
-## Layout
-
-```
-plugin/
-├── .claude-plugin/plugin.json   # manifest
-├── skills/                      # one directory per skill
-│   └── clain-version/SKILL.md
-└── README.md                    # this file
-```
-
-## Skills
-
-- **`clain-version`** — reports the installed CLI version by invoking `clain --version`. Reference implementation of the boundary rule: prose + a single Bash invocation, nothing else.
-
-## Installing locally during development
-
-This plugin is not yet packaged for distribution. To exercise it, point a local Claude Code session at the `plugin/` directory (mechanism depends on the Claude Code version in use; see Claude Code's plugin documentation for the current install path).
-
-A future spec covers packaging and distribution.
-
-## Assumed environment
-
-The plugin assumes the `clain` binary is already on `PATH`. Bootstrapping the CLI from inside the plugin is deliberately out of scope (see spec 0003 § Out of scope).
+For the universal project brief, see [../AGENTS.md](../AGENTS.md). For the boundary rule that skills must never contain business logic, see [../specs/0001-architecture.md](../specs/0001-architecture.md).

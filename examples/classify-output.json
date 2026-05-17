@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "scan": {
+    "class_dirs_considered": [
+      ".cache",
+      ".mypy_cache",
+      ".next",
+      ".pytest_cache",
+      ".ruff_cache",
+      ".venv",
+      "__pycache__",
+      "build",
+      "dist",
+      "node_modules",
+      "site-packages",
+      "venv"
+    ],
+    "duration_seconds": 0.012,
+    "ended_at": "2026-05-18T10:15:32+00:00",
+    "root": "/example/dev",
+    "rules_schema": 1,
+    "started_at": "2026-05-18T10:15:32+00:00",
+    "synced_root": "/example/dev",
+    "total_class_tags": 5
+  },
+  "workspaces": [
+    {
+      "class_tags": [
+        { "class": "cache-managed", "relative_path": "node_modules" },
+        { "class": "ephemeral", "relative_path": "dist" }
+      ],
+      "errors": [],
+      "in_sync_tree": true,
+      "manifests": ["package.json", "pnpm-lock.yaml"],
+      "name": "example-frontend",
+      "path": "/example/dev/example-frontend"
+    },
+    {
+      "class_tags": [
+        { "class": "cache-managed", "relative_path": ".venv" },
+        { "class": "bytecode", "relative_path": "__pycache__" }
+      ],
+      "errors": [],
+      "in_sync_tree": true,
+      "manifests": ["pixi.toml", "pyproject.toml"],
+      "name": "example-pipeline",
+      "path": "/example/dev/example-pipeline"
+    },
+    {
+      "class_tags": [
+        { "class": "cache-managed", "relative_path": ".venv" }
+      ],
+      "errors": [],
+      "in_sync_tree": true,
+      "manifests": ["pyproject.toml"],
+      "name": "example-ambiguous-py",
+      "path": "/example/dev/example-ambiguous-py"
+    }
+  ]
+}

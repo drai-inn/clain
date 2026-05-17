@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "kind": "move",
+  "generated_at": "2026-05-18T10:17:14+00:00",
+  "root": "/example/dev",
+  "rules_schema": 1,
+  "classify_cache_id": "/example/dev|2026-05-18T10:15:32+00:00",
+  "summary": {
+    "action_count": 4,
+    "unsafe_count": 0,
+    "workspace_count": 2
+  },
+  "actions": [
+    {
+      "id": "aaa111bbb222",
+      "workspace": "example-frontend",
+      "type": "smoke-test",
+      "target": "/example/dev/example-frontend",
+      "class": "workspace-source",
+      "rationale": "Integrity scan over manifests + integrity files at workspace root.",
+      "commands": [],
+      "preconditions": [],
+      "safe_to_execute": true,
+      "unsafe_reason": null
+    },
+    {
+      "id": "ccc333ddd444",
+      "workspace": "example-frontend",
+      "type": "move",
+      "target": "/example/local-dev/example-frontend",
+      "class": "workspace-source",
+      "rationale": "Workspace is inside the synced tree. Move source out; cache-managed subtrees (if any) must be excluded from the move and regenerated via `clain plan recreate` against the new location.",
+      "commands": [
+        "rsync -a --delete --exclude .cache --exclude .mypy_cache --exclude .next --exclude .pytest_cache --exclude .ruff_cache --exclude .venv --exclude __pycache__ --exclude build --exclude dist --exclude node_modules --exclude site-packages --exclude venv '/example/dev/example-frontend'/ '/example/local-dev/example-frontend'/"
+      ],
+      "preconditions": [],
+      "safe_to_execute": true,
+      "unsafe_reason": null
+    },
+    {
+      "id": "eee555fff666",
+      "workspace": "example-pipeline",
+      "type": "smoke-test",
+      "target": "/example/dev/example-pipeline",
+      "class": "workspace-source",
+      "rationale": "Integrity scan over manifests + integrity files at workspace root.",
+      "commands": [],
+      "preconditions": [
+        "venv directories embed absolute paths in pyvenv.cfg and console scripts — delete-and-recreate via `clain plan recreate`, do not move."
+      ],
+      "safe_to_execute": true,
+      "unsafe_reason": null
+    },
+    {
+      "id": "ggg777hhh888",
+      "workspace": "example-pipeline",
+      "type": "move",
+      "target": "/example/local-dev/example-pipeline",
+      "class": "workspace-source",
+      "rationale": "Workspace is inside the synced tree. Move source out; cache-managed subtrees (if any) must be excluded from the move and regenerated via `clain plan recreate` against the new location.",
+      "commands": [
+        "rsync -a --delete --exclude .cache --exclude .mypy_cache --exclude .next --exclude .pytest_cache --exclude .ruff_cache --exclude .venv --exclude __pycache__ --exclude build --exclude dist --exclude node_modules --exclude site-packages --exclude venv '/example/dev/example-pipeline'/ '/example/local-dev/example-pipeline'/"
+      ],
+      "preconditions": [
+        "venv directories embed absolute paths in pyvenv.cfg and console scripts — delete-and-recreate via `clain plan recreate`, do not move."
+      ],
+      "safe_to_execute": true,
+      "unsafe_reason": null
+    }
+  ]
+}

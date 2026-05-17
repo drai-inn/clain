@@ -1,6 +1,7 @@
 ---
 name: clain-version
 description: Use ONLY when the user explicitly asks for the installed version of the `clain` CLI on this machine — e.g. "what version of clain do I have", "clain --version", "is clain installed". Do not use for any other version question, any other CLI, or any other clain subcommand.
+compatibility: Requires the `clain` CLI on PATH (or via `pixi run clain`).
 ---
 
 Report the installed version of the `clain` CLI by invoking it directly.

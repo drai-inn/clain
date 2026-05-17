@@ -1,0 +1,42 @@
+# Example extension to src/clain/rules.toml — adds a Rust class for `target/`
+# directories and a recreate rule keyed on Cargo.lock.
+#
+# To apply, append the snippets below to your local copy of src/clain/rules.toml.
+# Then run the test suite: `pixi run -e dev test`. The rule loader will refuse
+# to load if `target` overlaps with an existing class directory_names, which is
+# the duplicate-name check that protects you from silent collisions.
+#
+# When opening a PR with this kind of change, your PR description should answer:
+# - Why is this addition needed? (e.g. "Many of our team's workspaces are Rust;
+#   target/ directories regularly exceed 5 GiB and are fully regenerable.")
+# - What priority did you pick for the recreate rule, and why? (Cargo.lock is
+#   unambiguous, so priority 10 is appropriate — same tier as pixi.toml / pnpm.)
+# - Did you add a corresponding placement entry, or is one not applicable?
+#   (Cargo's shared store is `~/.cargo/registry/` and lives outside the synced
+#   tree by default, so no placement override is needed — but documenting this
+#   in the rationale is still useful.)
+#
+# Goal-advisor verdict on the PR should confirm the addition serves an INTENT
+# goal — typically Goal 1 (categorical visibility) and Goal 4 (deliberate
+# consolidation).
+
+[[classes]]
+name = "rust-target"
+description = "Rust build artefacts. Regenerable by `cargo build`."
+default_action = "delete-and-recreate"
+directory_names = ["target"]
+
+[[recreate_rules]]
+manifest = "Cargo.lock"
+command = "cargo build --release"
+ecosystem = "cargo"
+priority = 10
+safe = true
+
+# Optional placement entry, if you want clain's rationale strings to cite the
+# canonical Rust cache location.
+[[placements]]
+ecosystem = "cargo"
+store_advice = "~/.cargo/registry/ — Cargo shares its registry across all projects by default."
+configure_via = "CARGO_HOME env var (default: ~/.cargo)"
+doc_url = "https://doc.rust-lang.org/cargo/reference/environment-variables.html"
