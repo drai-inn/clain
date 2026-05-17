@@ -1,0 +1,5 @@
+{
+  "name": "clain",
+  "version": "0.0.1",
+  "description": "Manage local AI-dev workspaces — thin wrapper over the clain CLI. All business logic lives in the CLI (see specs/0001-architecture.md)."
+}

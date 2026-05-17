@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s\\n' '--- INTENT (clain-me) ---'; cat \"$CLAUDE_PROJECT_DIR/INTENT.md\" 2>/dev/null || echo '(INTENT.md missing — create it before non-trivial work)'; printf '\\n--- Active specs ---\\n'; if ls \"$CLAUDE_PROJECT_DIR/specs/\"[0-9]*.md >/dev/null 2>&1; then for f in \"$CLAUDE_PROJECT_DIR/specs/\"[0-9]*.md; do awk '/^---$/{c++;next} c==1{print FILENAME\": \"$0; if($0 ~ /^status:/) exit}' \"$f\"; done; else echo '(no specs yet — write one in specs/ before non-trivial work)'; fi"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); cmd=$(printf '%s' \"$input\" | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"tool_input\"].get(\"command\",\"\"))' 2>/dev/null); case \"$cmd\" in *\"rm -rf\"*|*\"rm -fr\"*) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Destructive rm detected. Per INTENT goal 2 (deliberate cleanup), confirm there is an accepted spec authorising this deletion.\"}}';; esac"
+          }
+        ]
+      }
+    ]
+  }
+}

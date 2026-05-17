@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clain"
+version = "0.0.1"
+description = "Manage local AI-dev workspaces — visibility before action, deliberate cleanup."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Nick Jones", email = "nick@nickdjones.com" }]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.7",
+]
+
+[project.scripts]
+clain = "clain.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clain"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# B008: Typer's idiomatic API uses function calls in defaults (typer.Argument/Option).
+ignore = ["B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/clain", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+pythonpath = ["."]

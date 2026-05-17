@@ -1,0 +1,33 @@
+[workspace]
+name = "clain"
+version = "0.0.1"
+description = "Manage local AI-dev workspaces — visibility before action, deliberate cleanup."
+authors = ["Nick Jones <nick@nickdjones.com>"]
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "osx-64", "linux-64"]
+
+[dependencies]
+python = "3.12.*"
+
+[pypi-dependencies]
+clain = { path = ".", editable = true }
+typer = ">=0.12"
+rich = ">=13.7"
+
+[feature.dev.dependencies]
+pytest = "*"
+ruff = "*"
+mypy = "*"
+
+[environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tasks]
+clain = "python -m clain"
+
+[feature.dev.tasks]
+test = "pytest -q"
+lint = "ruff check src tests && ruff format --check src tests"
+fmt = "ruff format src tests"
+typecheck = "mypy src/clain tests"
