@@ -42,7 +42,9 @@ The advisor's verdict is pasted into the PR description as evidence.
 
 ## PR template
 
-Use this body when opening a PR (substitute the actual values):
+PRs auto-populate from [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md), so you don't have to copy the template below by hand — it's the source of truth that GitHub renders into the PR body.
+
+The template body, for reference:
 
 ```markdown
 ## Spec reference
