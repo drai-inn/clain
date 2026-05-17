@@ -1,7 +1,7 @@
 ---
 id: 0006
 title: Git + GitHub workflow for the clain repo itself
-status: accepted
+status: shipped
 goal: Goal 8 (Version-controlled, reviewable evolution)
 ---
 
