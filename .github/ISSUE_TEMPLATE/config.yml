@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Open-ended discussion
+    url: https://github.com/drai-inn/clain/discussions
+    about: For questions, ideas, and discussion that aren't specific bug reports or feature requests.
+  - name: Contributor workflow
+    url: https://github.com/drai-inn/clain/blob/main/CONTRIBUTING.md
+    about: How to extend the project, propose a spec, and open a PR.
+  - name: Agent onboarding
+    url: https://github.com/drai-inn/clain/blob/main/AGENTS.md
+    about: How an AI agent should pick up and drive clain on your behalf.
