@@ -17,11 +17,20 @@ schema = 1
 # `default_action` is consumed by `clain plan recreate` to choose between
 # delete-only and delete-and-recreate.
 
+# NOTE on `venv` (bare, no leading dot): deliberately *not* included here as of
+# spec 0009. CPython ships a stdlib module named `venv`, which appears as a
+# directory inside every Pixi/uv environment at
+# `<env>/lib/python3.12/venv/`. Including bare `venv` here caused a false
+# positive on the stdlib module for every Pixi-managed workspace. The convention
+# is `.venv` (with a leading dot); workspaces using a bare `venv/` should
+# either rename to `.venv/` or open a follow-up spec proposing marker-based
+# (pyvenv.cfg) detection. Do not reintroduce bare `venv` without that spec.
+
 [[classes]]
 name = "cache-managed"
 description = "Regenerable by a package manager from a manifest. Belongs in a single store per ecosystem, outside the synced tree."
 default_action = "delete-and-recreate"
-directory_names = ["node_modules", ".venv", "venv", "site-packages"]
+directory_names = ["node_modules", ".venv", "site-packages", ".pixi"]
 
 [[classes]]
 name = "ephemeral"
@@ -34,6 +43,16 @@ name = "bytecode"
 description = "Bytecode or tool cache, regenerated on the next run."
 default_action = "delete"
 directory_names = ["__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"]
+
+
+# ----- Prune (silent skip during walks) -----------------------------------------------
+# Directories pruned at walk time, *not* reported as a class. Use for metadata
+# directories that are neither actionable subjects of any plan nor worth scanning
+# into (typically VCS metadata). The loader refuses to load if any prune name
+# overlaps with a class directory_names entry.
+
+[prune]
+names = [".git", ".hg", ".svn", ".jj"]
 
 
 # ----- Manifests to detect at workspace root -------------------------------------------

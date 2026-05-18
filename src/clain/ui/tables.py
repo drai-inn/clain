@@ -26,9 +26,11 @@ def classify_table(payload: dict[str, Any]) -> Table:
         tag_str = ", ".join(f"{cls}x{n}" for cls, n in sorted(counts.items())) or "—"
         manifests = ", ".join(ws.get("manifests", [])) or "—"
         errors = str(len(ws.get("errors", []))) if ws.get("errors") else ""
+        in_sync = ws.get("in_sync_tree")
+        sync_mark = "✓" if in_sync is True else ("·" if in_sync is False else "?")
         table.add_row(
             ws.get("name", "?"),
-            "✓" if ws.get("in_sync_tree") else "·",
+            sync_mark,
             tag_str,
             manifests,
             errors,
@@ -39,13 +41,26 @@ def classify_table(payload: dict[str, Any]) -> Table:
 def classify_footer(payload: dict[str, Any]) -> str:
     scan = payload.get("scan", {})
     workspaces = payload.get("workspaces", [])
-    in_sync = sum(1 for w in workspaces if w.get("in_sync_tree"))
-    return (
+    synced_root = scan.get("synced_root")
+    in_sync_count = sum(1 for w in workspaces if w.get("in_sync_tree") is True)
+    unknown_count = sum(1 for w in workspaces if w.get("in_sync_tree") is None)
+    sync_summary = (
+        "[bold]Sync placement:[/bold] unknown ([cyan]CLAIN_SYNCED_ROOT[/cyan] not set)"
+        if synced_root is None
+        else f"[bold]In synced tree:[/bold] {in_sync_count}/{len(workspaces)}"
+    )
+    footer = (
         f"[bold]Workspaces:[/bold] {len(workspaces)}  "
-        f"[bold]In synced tree:[/bold] {in_sync}  "
+        f"{sync_summary}  "
         f"[bold]Class tags:[/bold] {scan.get('total_class_tags', 0)}  "
         f"[dim]scan {scan.get('duration_seconds', '?')}s[/dim]"
     )
+    if synced_root is None and unknown_count > 0:
+        footer += (
+            "\n[dim]Pass [cyan]CLAIN_SYNCED_ROOT[/cyan] (e.g. your GDrive / OneDrive / Dropbox / iCloud "
+            "Drive path) to enable in-sync detection.[/dim]"
+        )
+    return footer
 
 
 def workspace_detail_table(workspace: dict[str, Any]) -> Table:

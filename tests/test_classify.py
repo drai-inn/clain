@@ -70,6 +70,16 @@ def test_classify_in_sync_tree_flag(tmp_path: Path) -> None:
     assert payload_local["workspaces"][0]["in_sync_tree"] is False
 
 
+def test_classify_in_sync_tree_is_null_when_synced_root_unset(tmp_path: Path) -> None:
+    """Spec 0009: synced_root=None ⇒ in_sync_tree is None (unknown)."""
+    root = tmp_path / "dev"
+    root.mkdir()
+    make_node_workspace(root, "alpha", lockfile="pnpm-lock.yaml")
+    payload = cls.run_classify(root, None)
+    assert payload["workspaces"][0]["in_sync_tree"] is None
+    assert payload["scan"]["synced_root"] is None
+
+
 def test_classify_prunes_class_dirs(tmp_path: Path) -> None:
     """The class directories must not be recursed into."""
     root = tmp_path / "dev"

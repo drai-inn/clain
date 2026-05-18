@@ -77,7 +77,7 @@ def classify(
 ) -> None:
     """Categorical scan: tags cache-managed / ephemeral / bytecode subtrees per workspace."""
     resolved = _resolve_or_exit(root)
-    synced = resolve_synced_root(resolved)
+    synced = resolve_synced_root()
     if not resolved.exists():
         err_console.print(f"[red]Root does not exist:[/red] {resolved}")
         raise typer.Exit(code=2)

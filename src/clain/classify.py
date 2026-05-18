@@ -45,7 +45,7 @@ class ClassTag:
 class WorkspaceClass:
     name: str
     path: str
-    in_sync_tree: bool
+    in_sync_tree: bool | None
     class_tags: list[ClassTag] = field(default_factory=list)
     manifests: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -94,12 +94,17 @@ def _is_under(path: Path, root: Path) -> bool:
         return False
 
 
-def classify_workspace(workspace: Path, synced_root: Path, rules: Rules) -> WorkspaceClass:
-    """Walk a workspace, prune at class boundaries, record tags + manifests."""
+def classify_workspace(workspace: Path, synced_root: Path | None, rules: Rules) -> WorkspaceClass:
+    """Walk a workspace, prune at class boundaries, record tags + manifests.
+
+    `synced_root` is None when `CLAIN_SYNCED_ROOT` is unset; in that case
+    `in_sync_tree` resolves to None ("unknown") rather than False.
+    """
+    in_sync: bool | None = None if synced_root is None else _is_under(workspace, synced_root)
     result = WorkspaceClass(
         name=workspace.name,
         path=str(workspace),
-        in_sync_tree=_is_under(workspace, synced_root),
+        in_sync_tree=in_sync,
         manifests=_detect_manifests(workspace, rules),
     )
 
@@ -111,6 +116,9 @@ def classify_workspace(workspace: Path, synced_root: Path, rules: Rules) -> Work
     for dirpath, dirnames, _filenames in os.walk(workspace, followlinks=False, onerror=_onerror):
         keep: list[str] = []
         for d in dirnames:
+            if d in rules.prune_names:
+                # Pruned: do not recurse, do not record.
+                continue
             cls = rules.class_of(d)
             if cls is not None:
                 rel = (Path(dirpath) / d).relative_to(workspace)
@@ -123,7 +131,7 @@ def classify_workspace(workspace: Path, synced_root: Path, rules: Rules) -> Work
     return result
 
 
-def run_classify(root: Path, synced_root: Path, rules: Rules | None = None) -> dict[str, Any]:
+def run_classify(root: Path, synced_root: Path | None, rules: Rules | None = None) -> dict[str, Any]:
     if not root.exists():
         raise FileNotFoundError(f"Root does not exist: {root}")
     if not root.is_dir():
@@ -143,11 +151,12 @@ def run_classify(root: Path, synced_root: Path, rules: Rules | None = None) -> d
         "schema": SCHEMA_VERSION,
         "scan": {
             "root": str(root),
-            "synced_root": str(synced_root),
+            "synced_root": str(synced_root) if synced_root is not None else None,
             "started_at": datetime.fromtimestamp(started, tz=UTC).isoformat(timespec="seconds"),
             "ended_at": datetime.fromtimestamp(ended, tz=UTC).isoformat(timespec="seconds"),
             "duration_seconds": round(ended - started, 3),
             "class_dirs_considered": sorted(rules.all_class_dirs),
+            "prune_names": sorted(rules.prune_names),
             "rules_schema": rules.schema,
             "total_class_tags": total_tags,
         },
@@ -189,7 +198,7 @@ def log_run(root: Path, payload: dict[str, Any]) -> None:
 
 def get_or_run(
     root: Path,
-    synced_root: Path,
+    synced_root: Path | None,
     *,
     refresh: bool = False,
     use_cache: bool = True,

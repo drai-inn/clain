@@ -53,6 +53,7 @@ class Rules:
     manifests_to_detect: tuple[str, ...]
     recreate_rules: tuple[RecreateRule, ...]
     placements: tuple[Placement, ...]
+    prune_names: frozenset[str] = field(default_factory=frozenset)
     _class_of: dict[str, str] = field(default_factory=dict)
     _all_class_dirs: frozenset[str] = field(default_factory=frozenset)
     _recreate_by_manifest: dict[str, RecreateRule] = field(default_factory=dict)
@@ -156,8 +157,24 @@ def _build_rules(data: dict[str, Any]) -> Rules:
         raise RulesLoadError("[[placements]] must be a list of tables")
     placements = tuple(_parse_placement(p) for p in placements_raw)
 
+    prune_raw = data.get("prune", {})
+    if not isinstance(prune_raw, dict):
+        raise RulesLoadError("[prune] must be a table")
+    prune_names_raw = prune_raw.get("names", [])
+    if not isinstance(prune_names_raw, list) or not all(isinstance(n, str) for n in prune_names_raw):
+        raise RulesLoadError("[prune].names must be a list of strings")
+    prune_names = frozenset(prune_names_raw)
+
     class_of = {d: c.name for c in classes for d in c.directory_names}
     all_class_dirs = frozenset(class_of.keys())
+
+    # Prune names must not overlap with any class directory_names.
+    overlap = prune_names & all_class_dirs
+    if overlap:
+        raise RulesLoadError(
+            f"[prune].names overlaps with class directory_names: {sorted(overlap)!r} "
+            "(a name cannot be both classified and pruned)"
+        )
 
     # First-match-wins lookup table, but iteration order is priority-sorted, so
     # callers can still walk `recreate_rules` for priority semantics.
@@ -173,6 +190,7 @@ def _build_rules(data: dict[str, Any]) -> Rules:
         manifests_to_detect=manifests_to_detect,
         recreate_rules=recreate_rules,
         placements=placements,
+        prune_names=prune_names,
         _class_of=class_of,
         _all_class_dirs=all_class_dirs,
         _recreate_by_manifest=recreate_by_manifest,
