@@ -8,17 +8,21 @@ Run the `clain` CLI to produce a delete-and-recreate plan **in dry mode** for a 
 
 ## Steps
 
-1. Confirm the root with the developer. If they have not run `clain classify <ROOT>` recently, do that first (or invoke the `clain-classify` skill). Without a classify cache, `clain plan recreate` will exit non-zero with a clear error.
+1. **Pick the mode** (matches the classify mode the developer used). Single-workspace: pass `--here`. Tree of workspaces: omit it.
 
-2. Always pass `--dry`. This is the safe-preview mode and is required for normal use until the project's development-phase gate is lifted by a future named spec.
+2. Ensure a classify cache exists. If the developer has not run `clain classify` (or `clain classify --here`) for the path recently, do that first (or invoke the `clain-classify` skill). Without a matching cache, `clain plan recreate` exits non-zero with a clear error.
+
+3. **Always pass `--dry`.** This is the safe-preview mode and is required for normal use until the project's development-phase gate is lifted by a future named spec.
 
 ```bash
-clain plan recreate "$ROOT" --dry
+clain plan recreate --here "$WORKSPACE_PATH" --dry      # single-workspace mode
+clain plan recreate "$ROOT" --dry                       # tree mode
 ```
 
-3. Or for machine-readable output:
+4. Or for machine-readable output:
 
 ```bash
+clain plan recreate --here "$WORKSPACE_PATH" --dry --json
 clain plan recreate "$ROOT" --dry --json
 ```
 

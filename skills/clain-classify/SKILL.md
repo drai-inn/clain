@@ -1,6 +1,6 @@
 ---
 name: clain-classify
-description: Use when the developer wants a categorical inventory of workspaces under a dev tree — e.g. "classify my dev directory", "scan ~/dev/ with clain", "what kinds of subtrees are in this workspace tree?", "run clain classify". Surfaces cache-managed / ephemeral / bytecode / workspace-source tags per workspace and reports which workspaces sit inside a synced (e.g. Google Drive) tree.
+description: Use when the developer wants a categorical inventory of one workspace or a tree of workspaces — e.g. "classify my dev directory", "what's regenerable in this project?", "what kinds of subtrees are in this workspace tree?", "run clain classify --here". Surfaces cache-managed / ephemeral / bytecode / workspace-source tags and reports which workspaces sit inside a synced (e.g. GDrive / OneDrive / Dropbox / iCloud Drive) tree.
 compatibility: Requires the `clain` CLI on PATH (or invocable via `pixi run clain` from a checked-out clain-me workspace).
 ---
 
@@ -8,27 +8,25 @@ Run the `clain` CLI to classify workspaces under a developer-supplied root and s
 
 ## Steps
 
-1. Confirm the root with the developer. If they did not specify a path, ask for one or check whether `CLAIN_DEV_ROOT` is set in their environment. **Do not invent a default** — `clain` has no baked-in default and will error if neither a positional argument nor `CLAIN_DEV_ROOT` is provided.
+1. **Pick the mode.** If the developer is talking about *one* project they're in (the common case), use single-workspace mode by passing `--here`. If they're talking about a tree of projects (e.g. their `~/dev/` directory), use the default tree mode.
 
-2. If the developer wants a rendered table (the usual case), run:
+2. **Single-workspace mode (recommended default for everyday use):**
+
+```bash
+clain classify --here "$WORKSPACE_PATH"      # or omit the path to use cwd
+```
+
+3. **Tree mode (for cleaning up many workspaces at once):** confirm the root with the developer. If they did not specify a path, ask for one or check whether `CLAIN_DEV_ROOT` is set in their environment. Do not invent a default — `clain` has no baked-in default in tree mode and will error if neither a positional argument nor `CLAIN_DEV_ROOT` is provided.
 
 ```bash
 clain classify "$ROOT"
 ```
 
-3. If the developer wants machine-readable output (for piping or further analysis), run:
+4. **Machine-readable output** (any mode): add `--json` to either form for piping or further analysis.
 
-```bash
-clain classify "$ROOT" --json
-```
+5. **Drill into one workspace** (tree mode only): `clain classify "$ROOT" --workspace "$WORKSPACE_NAME"`. (Not compatible with `--here`.)
 
-4. If they want to drill into one workspace's full class-tag list, run:
-
-```bash
-clain classify "$ROOT" --workspace "$WORKSPACE_NAME"
-```
-
-5. Report the output verbatim. Highlight: the number of workspaces under the synced tree, the most common class observed, and any rows marked with errors.
+6. Report the output verbatim. In single-workspace mode highlight: the manifests detected, the cache-managed subtrees, and the suggested next command shown in the "Next:" footer. In tree mode highlight: the number of workspaces under the synced tree, the most common class observed, and any rows marked with errors.
 
 ## Notes
 
