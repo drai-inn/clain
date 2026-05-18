@@ -1,43 +1,85 @@
 # clain
 
-**Tidy up the workspace sprawl from AI-assisted coding.** For developers whose `dev/` directory has 30+ workspaces — each carrying its own `node_modules` and `.venv` — quietly re-syncing to Google Drive forever.
+**Tidy up workspace sprawl from AI-assisted coding.** A tool for developers who use AI coding agents (Claude Code, Cursor, OpenCode, Aider, Cline, …) and end up with workspaces piling up — on synced storage (Google Drive, OneDrive, Dropbox, iCloud Drive, …) where every dependency tree re-uploads forever, or just on a constrained local disk where each project's `node_modules` / `.venv` / `.pixi` quietly chews through your headroom.
 
-If your AI coding tools (Claude Code, Cursor, OpenCode, Aider, Cline, …) have left you with dozens of half-explored workspaces piling up under your synced cloud folder, and you can feel the storage tax every time you `ls`, `clain` is for you. It classifies each subtree by kind (cache-managed dependency trees, ephemeral build outputs, bytecode, workspace source), emits *reviewable plans* for tidying them up (delete-and-recreate via pnpm/Pixi/uv; move workspace source out of the synced tree), and refuses to act on those plans until you've read them. The phase gate is closed by design while the project is pre-1.0 — every plan is a preview today, and lifting that gate requires its own named spec.
+`clain` does two things. It **classifies** each workspace by the kind of subtree it carries (cache-managed dependency trees, ephemeral build outputs, bytecode, workspace source). And it emits **reviewable plans** for tidying it up — *delete-and-recreate* via the right package manager (pnpm / Pixi / uv / poetry / npm / yarn), or *move-and-triage* the source code out of synced storage to a local home. Every plan is preview-only today; execution is gated until a future named spec authorises it.
 
-## What classification looks like
+The everyday entry point is one workspace at a time. Two-command demo:
 
-```text
-                            Workspace classification
-┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Workspace           ┃ In sync tree ┃ Class tags                     ┃ Manifests                  ┃
-┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ example-frontend    │      ✓       │ cache-managedx1, ephemeralx1   │ package.json, pnpm-lock... │
-│ example-pipeline    │      ✓       │ cache-managedx1, bytecodex1    │ pixi.toml, pyproject.toml  │
-│ example-uv-project  │      ✓       │ cache-managedx1                │ pyproject.toml, uv.lock    │
-│ example-ambiguous   │      ✓       │ cache-managedx1                │ pyproject.toml             │
-└─────────────────────┴──────────────┴────────────────────────────────┴────────────────────────────┘
-Workspaces: 4  In synced tree: 4  Class tags: 6  scan 0.011s
+```sh
+pixi install                                   # one-off
+cd ~/some/project                              # any project with pyproject.toml / package.json / etc.
+pixi run clain classify --here                 # categorical view of THIS workspace
+pixi run clain plan recreate --here --dry      # what a clean rebuild would look like
 ```
 
-Each workspace gets a categorical view in seconds. The scan stops at every class boundary — it never recurses into `node_modules` or `.venv`. Then `clain plan recreate --dry` produces a delete-and-recreate plan with the right command for each workspace's manifest (`pixi install`, `pnpm install --frozen-lockfile`, `uv sync`, …) and flags the ambiguous ones (`pyproject.toml` with no toolchain lockfile → `safe_to_execute: false`).
+Here's what the single-workspace classify looks like against a project with both a Pixi env and the usual Python tool caches:
 
-See [docs/USAGE.md](docs/USAGE.md) for the full walkthrough. See [INTENT.md](INTENT.md) for the mission.
+```text
+example-workspace  (~/dev/example-workspace)
+├── Manifests: pixi.toml, pyproject.toml
+├── Sync placement: ? unknown (CLAIN_SYNCED_ROOT not set)
+├── bytecode
+│   ├── .mypy_cache
+│   ├── .pytest_cache
+│   ├── .ruff_cache
+│   ├── src/example/__pycache__
+│   └── tests/__pycache__
+└── cache-managed
+    └── .pixi
+
+Next: clain plan recreate --here --dry  →  pixi install
+```
+
+`clain` recognised the manifests at the project root, identified the regenerable subtrees, and pointed you at the recreate command derived from `pixi.toml`. The scan stops at `.pixi/` — it doesn't recurse through every nested `__pycache__` in the bundled CPython.
+
+See [INTENT.md](INTENT.md) for the project's mission. See [docs/USAGE.md](docs/USAGE.md) for the full walkthrough.
 
 ---
 
 ## Three ways in
 
-### I just want to run the CLI
+### I want to tidy one project
 
 ```sh
 pixi install
-export CLAIN_DEV_ROOT=~/some/dev/tree   # no personal-info default baked in
+cd ~/some/project
+pixi run clain classify --here
+pixi run clain plan recreate --here --dry
+```
+
+This is the lowest-friction entry point. Walkthrough in [docs/USAGE.md](docs/USAGE.md).
+
+### I have a tree of workspaces to triage
+
+If your historical `dev/` directory has accumulated dozens of AI-spawned workspaces — say under a synced cloud drive — point `clain` at the tree:
+
+```sh
+export CLAIN_DEV_ROOT=~/some/dev/tree              # no personal-info default baked in
+export CLAIN_SYNCED_ROOT=~/path/to/your/synced/storage     # optional; enables in-sync detection
 pixi run clain classify
 pixi run clain plan recreate --dry
 pixi run clain plan move --dest ~/dev/ --dry
 ```
 
-Full walkthrough — reading the output, customising the rule base, common scenarios — in [docs/USAGE.md](docs/USAGE.md).
+In tree mode `clain` enumerates each workspace under `CLAIN_DEV_ROOT` and classifies them side by side:
+
+```text
+                           Workspace classification                           
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Workspace       ┃ In sync tree ┃ Class tags     ┃ Manifests       ┃ Errors ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ example-ambigu… │      ?       │ cache-managed… │ pyproject.toml  │        │
+│ example-fronte… │      ?       │ cache-managed… │ package.json,   │        │
+│                 │              │ ephemeralx1    │ pnpm-lock.yaml  │        │
+│ example-pipeli… │      ?       │ cache-managed… │ pixi.toml,      │        │
+│                 │              │                │ pyproject.toml  │        │
+│ example-uv-pro… │      ?       │ cache-managed… │ pyproject.toml, │        │
+│                 │              │                │ uv.lock         │        │
+└─────────────────┴──────────────┴────────────────┴─────────────────┴────────┘
+```
+
+The `?` in the *In sync tree* column means `CLAIN_SYNCED_ROOT` isn't set — set it to your synced-storage path (GDrive / OneDrive / Dropbox / iCloud Drive) to enable in-sync detection.
 
 ### I want my AI agent to drive this
 

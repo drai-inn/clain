@@ -6,7 +6,10 @@ Entries cite the spec ID and title. Dates live in git history; author attributio
 
 ## [Unreleased]
 
-- spec 0008 — *GitHub repository presentation + discoverability for AI-dev workspace storage audience*
+- spec 0008 — *GitHub repository presentation + discoverability*
+- spec 0009 — *Rule base completeness*: `.pixi` cache-managed, bare `venv` dropped, `.git`-family pruned, nullable `in_sync_tree`. Schema-1 additive: `in_sync_tree` may now be `null` when `CLAIN_SYNCED_ROOT` is unset.
+- spec 0010 — *Single-workspace mode*: `--here` flag on `classify` / `plan recreate` / `plan move`. Rich `Tree` renderer for single-workspace classify. `scan.mode = "tree" | "single"` (additive; absent = `"tree"` for backwards compat).
+- spec 0011 — *Documentation generalisation*: synced-storage framing (GDrive / OneDrive / Dropbox / iCloud Drive as the class, not just GDrive), single-workspace-first quickstart, captured Rich output, reproducible via `examples/capture.py`.
 
 ## Pre-history (pre-public, captured as initial baseline)
 

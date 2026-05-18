@@ -16,23 +16,39 @@ EXAMPLES_ROOT = REPO_ROOT / "examples"
 
 # Personal-info needles forbidden in public-facing files.
 #
-# Note: `~/Library/pnpm/store`, `~/Library/Caches/pypoetry/...` and similar are
-# canonical macOS placement advice — not personal info — so we do not forbid
-# `~/Library/` outright. We forbid only patterns that identify a specific user
-# or machine (GoogleDrive paths, real usernames, absolute /Users/<name>/ paths).
+# Notes on what is and isn't a needle:
+# - `~/Library/CloudStorage/`, `~/Library/pnpm/store`, `~/Library/Caches/pypoetry/...`
+#   are generic macOS folder paths, not personal info. The personal info appears
+#   *inside* them (e.g. `~/Library/CloudStorage/GoogleDrive-<email>/...`), and
+#   that is caught by the `GoogleDrive-` needle.
+# - We forbid patterns that identify a specific user, tenant, or absolute home
+#   path. `GoogleDrive-` (with the trailing hyphen) catches the GDrive folder
+#   format that embeds an email. `OneDrive-Personal-` is the OneDrive equivalent.
 FORBIDDEN_SUBSTRINGS = (
-    "GoogleDrive",
-    "CloudStorage",
+    "GoogleDrive-",
+    "OneDrive-Personal-",
     "njon001",
-    "clain-me",
     "nick@",
     "/Users/",
 )
 
+# Note on `clain-me`: that's this project's own working-directory name, not
+# personal info, and it legitimately appears in repository-layout sections of
+# CONTRIBUTING.md. The needle list previously included it; spec 0011 dropped
+# that since it conflates "project-specific" with "personal-info-leaking".
+
+# Note on INTENT.md: spec 0011 § Out of scope explicitly exempts INTENT.md's
+# Problem section as historical provenance (it describes the *specific* GDrive
+# situation that motivated this project's existence). So INTENT.md is not in
+# PUBLIC_DOCS — anonymisation discipline applies to onboarding docs, not to the
+# historical record.
 PUBLIC_DOCS = (
     REPO_ROOT / "README.md",
+    REPO_ROOT / "AGENTS.md",
+    REPO_ROOT / "CONTRIBUTING.md",
     REPO_ROOT / "SECURITY.md",
     REPO_ROOT / "CHANGELOG.md",
+    REPO_ROOT / "docs" / "USAGE.md",
 )
 
 

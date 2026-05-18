@@ -102,7 +102,7 @@ When you change the rule base in a PR, the PR description should explain *why* t
 
 ## Anonymisation rule (public repo discipline)
 
-This is a public repository. **No personal information may appear in source defaults or `examples/`:** no email addresses, no GoogleDrive paths, no `/Users/<name>/` paths, no machine-specific hostnames. Tests enforce this for `examples/`. The `CLAIN_DEV_ROOT` env var carries machine-specific configuration at runtime; do not encode it in source.
+This is a public repository. **No personal information may appear in source defaults, `examples/`, or public docs.** That means: no email addresses, no tenant-bearing synced-storage paths (the format used by GDrive / OneDrive that embeds a user identifier after a hyphen), no absolute home paths, no machine-specific hostnames. Tests enforce this via `tests/test_examples_anonymised.py` against `examples/` and the public docs (README, AGENTS, CONTRIBUTING, SECURITY, CHANGELOG, docs/USAGE). The `CLAIN_DEV_ROOT` env var carries machine-specific configuration at runtime; do not encode it in source.
 
 ## Read-only-against-ROOT discipline
 

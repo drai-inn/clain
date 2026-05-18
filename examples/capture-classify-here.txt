@@ -1,0 +1,13 @@
+example-workspace  (~/dev/example-workspace)
+├── Manifests: pixi.toml, pyproject.toml
+├── Sync placement: ? unknown (CLAIN_SYNCED_ROOT not set)
+├── bytecode
+│   ├── .mypy_cache
+│   ├── .pytest_cache
+│   ├── .ruff_cache
+│   ├── src/example/__pycache__
+│   └── tests/__pycache__
+└── cache-managed
+    └── .pixi
+
+Next: clain plan recreate --here --dry  →  pixi install  scan 0.001s

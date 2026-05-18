@@ -4,7 +4,7 @@ This file is the agent-agnostic entry point for `clain`. Any AI agent landing in
 
 ## What this project is
 
-`clain` helps a developer doing AI-assisted coding manage the storage cost of running many parallel workspaces — without losing the ability to spin up new ones, and without unreviewed destructive action. It does two things: classify workspaces under a configured root by directory class (cache-managed, ephemeral, bytecode, workspace-source), and emit executable plans (delete-and-recreate, move-and-triage) that the developer reviews before any action runs.
+`clain` helps a developer doing AI-assisted coding manage the storage cost of running many parallel workspaces — wherever those workspaces live (synced cloud storage like Google Drive / OneDrive / Dropbox / iCloud Drive, or a local disk under pressure). It does two things: classify workspaces by directory class (cache-managed, ephemeral, bytecode, workspace-source), and emit executable plans (delete-and-recreate, move-and-triage) that the developer reviews before any action runs.
 
 See [INTENT.md](INTENT.md) for the full mission, goals, and non-goals. INTENT is the source of truth; if anything here disagrees with it, INTENT wins.
 
@@ -15,11 +15,11 @@ This project follows the [Agent Skills](https://agentskills.io) format. Skills l
 What the developer expects you to do:
 
 1. Install dependencies: `pixi install`. Requires [Pixi](https://pixi.sh/) and Python 3.12+.
-2. Resolve the root: the developer sets `CLAIN_DEV_ROOT` (or passes a path positionally to each command). **There is no baked-in default** — you must not invent one.
-3. Run `clain classify <ROOT>` to produce the categorical view of the developer's workspaces.
-4. Run `clain plan recreate <ROOT> --dry` and/or `clain plan move <ROOT> --dest <DEST> --dry` to preview action plans. **Always use `--dry`** unless the developer has explicitly authorised execution.
-5. Render the plan output (or the JSON via `--json`) for the developer to review. Surface the `unsafe_count` and any `unsafe_reason` strings prominently.
-
+2. **Pick the mode.** For the everyday "one project I'm currently in" case, use **single-workspace mode** by passing `--here`. For the historical "I have a tree of workspaces accumulated under a synced drive" case, use the default tree mode. Single-workspace mode is the recommended entry point.
+3. **Single-workspace mode:** `clain classify --here [PATH]` (defaults to cwd). Then `clain plan recreate --here [PATH] --dry`.
+4. **Tree mode:** the developer sets `CLAIN_DEV_ROOT` (or passes a path positionally). **There is no baked-in default** — you must not invent one. Optionally `CLAIN_SYNCED_ROOT` to enable in-sync detection.
+5. **Always use `--dry`** on `plan` invocations unless the developer has explicitly authorised execution. Execution is gated regardless.
+6. Render the plan output (or the JSON via `--json`) for the developer to review. Surface the `unsafe_count` and any `unsafe_reason` strings prominently.
 Skills bundled in this repo (each shells out to the CLI — no business logic in the skill body):
 
 - [`skills/clain-version/`](skills/clain-version/) — reports the installed CLI version.
