@@ -17,7 +17,9 @@ from clain.ui.tables import (
     classify_footer,
     classify_table,
     plan_footer,
-    plan_table,
+    plan_header,
+    plan_panels,
+    plan_table_flat,
     single_workspace_footer,
     single_workspace_tree,
     unsafe_actions_table,
@@ -154,12 +156,20 @@ def _load_classify_or_exit(resolved: Path) -> dict[str, object]:
     return payload
 
 
-def _emit_plan(plan: dict[str, object], json_out: bool, dry: bool) -> None:
+def _emit_plan(plan: dict[str, object], json_out: bool, dry: bool, flat_table: bool = False) -> None:
     """Render + persist the plan, then attempt execution unless --dry was passed.
 
+    Render modes (spec 0012):
+    - `flat_table=False, json_out=False` (default): workspace-grouped Panels with
+      relative paths.
+    - `flat_table=True`: single-table layout with absolute paths (the pre-spec-0012
+      shape), preserved for copy-paste/spreadsheet use.
+    - `json_out=True`: emit JSON to stdout; no Rich rendering.
+
     Execution is the default behaviour. The phase gate in `clain.executor`
-    blocks it for now and raises ExecuteGateClosed, which we surface as a Rich
-    error with a pointer to --dry.
+    blocks it and raises ExecuteGateClosed, which we surface as a Rich error
+    with a pointer to --dry. The persisted JSON under $XDG_STATE_HOME is
+    byte-identical across all three render modes — rendering is render-only.
     """
     saved = planmod.persist_plan(plan)
 
@@ -171,7 +181,12 @@ def _emit_plan(plan: dict[str, object], json_out: bool, dry: bool) -> None:
         if unsafe is not None:
             console.print(unsafe)
             console.print()
-        console.print(plan_table(plan))
+        if flat_table:
+            console.print(plan_table_flat(plan))
+        else:
+            console.print(plan_header(plan))
+            for panel in plan_panels(plan):
+                console.print(panel)
         console.print(plan_footer(plan, str(saved)))
 
     if dry:
@@ -195,6 +210,12 @@ def _emit_plan(plan: dict[str, object], json_out: bool, dry: bool) -> None:
 def plan_recreate(
     root: Path | None = typer.Argument(None, help="Root previously classified."),
     json_out: bool = typer.Option(False, "--json", help="Emit plan JSON to stdout."),
+    flat_table: bool = typer.Option(
+        False,
+        "--table",
+        help="Use the single-table layout with absolute paths (pre-0012 shape). "
+        "Useful for copy-paste into a spreadsheet. Mutually exclusive with --json.",
+    ),
     dry: bool = typer.Option(False, "--dry", help="Preview only — render the plan and stop before any execution."),
     here: bool = typer.Option(
         False,
@@ -210,10 +231,16 @@ def plan_recreate(
     (src/clain/executor.py:EXECUTE_ENABLED) and will error until a future
     spec lifts the gate.
     """
+    if flat_table and json_out:
+        err_console.print(
+            "[red]--table and --json are mutually exclusive.[/red] Both write the plan "
+            "to stdout in a single format; only one stdout format may be selected."
+        )
+        raise typer.Exit(code=2)
     resolved = (root or Path.cwd()).expanduser().resolve() if here else _resolve_or_exit(root)
     classify_payload = _load_classify_or_exit(resolved)
     plan = planmod.build_recreate_plan(classify_payload)
-    _emit_plan(plan, json_out, dry)
+    _emit_plan(plan, json_out, dry, flat_table=flat_table)
 
 
 @plan_app.command("move")
@@ -225,6 +252,11 @@ def plan_move(
         help="Destination root for moved workspaces. Required.",
     ),
     json_out: bool = typer.Option(False, "--json", help="Emit plan JSON to stdout."),
+    flat_table: bool = typer.Option(
+        False,
+        "--table",
+        help="Use the single-table layout with absolute paths. Mutually exclusive with --json.",
+    ),
     dry: bool = typer.Option(False, "--dry", help="Preview only — render the plan and stop before any execution."),
     here: bool = typer.Option(
         False,
@@ -240,13 +272,19 @@ def plan_move(
     (src/clain/executor.py:EXECUTE_ENABLED) and will error until a future
     spec lifts the gate.
     """
+    if flat_table and json_out:
+        err_console.print(
+            "[red]--table and --json are mutually exclusive.[/red] Both write the plan "
+            "to stdout in a single format; only one stdout format may be selected."
+        )
+        raise typer.Exit(code=2)
     if dest is None:
         err_console.print("[red]--dest is required for plan move (e.g. --dest ~/dev/).[/red]")
         raise typer.Exit(code=2)
     resolved = (root or Path.cwd()).expanduser().resolve() if here else _resolve_or_exit(root)
     classify_payload = _load_classify_or_exit(resolved)
     plan = planmod.build_move_plan(classify_payload, dest.expanduser().resolve())
-    _emit_plan(plan, json_out, dry)
+    _emit_plan(plan, json_out, dry, flat_table=flat_table)
 
 
 @plan_app.command("explain")

@@ -1,0 +1,59 @@
+{
+  "actions": [
+    {
+      "class": "cache-managed",
+      "commands": [
+        "rm -rf '/fixture/dev/alpha/node_modules'"
+      ],
+      "id": "aaaa11111111",
+      "preconditions": [],
+      "rationale": "x",
+      "safe_to_execute": true,
+      "target": "/fixture/dev/alpha/node_modules",
+      "type": "delete",
+      "unsafe_reason": null,
+      "workspace": "alpha"
+    },
+    {
+      "class": "cache-managed",
+      "commands": [
+        "pnpm install --frozen-lockfile"
+      ],
+      "id": "aaaa22222222",
+      "preconditions": [
+        "delete first"
+      ],
+      "rationale": "x",
+      "safe_to_execute": true,
+      "target": "/fixture/dev/alpha",
+      "type": "recreate",
+      "unsafe_reason": null,
+      "workspace": "alpha"
+    },
+    {
+      "class": "cache-managed",
+      "commands": [
+        "rm -rf '/fixture/dev/beta/.venv'"
+      ],
+      "id": "bbbb11111111",
+      "preconditions": [],
+      "rationale": "x",
+      "safe_to_execute": false,
+      "target": "/fixture/dev/beta/.venv",
+      "type": "delete",
+      "unsafe_reason": "ambiguous Python toolchain",
+      "workspace": "beta"
+    }
+  ],
+  "classify_cache_id": "fixture",
+  "generated_at": "2026-05-18T00:00:00+00:00",
+  "kind": "recreate",
+  "root": "/fixture/dev",
+  "rules_schema": 1,
+  "schema": 1,
+  "summary": {
+    "action_count": 3,
+    "unsafe_count": 1,
+    "workspace_count": 2
+  }
+}

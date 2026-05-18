@@ -10,6 +10,7 @@ Entries cite the spec ID and title. Dates live in git history; author attributio
 - spec 0009 — *Rule base completeness*: `.pixi` cache-managed, bare `venv` dropped, `.git`-family pruned, nullable `in_sync_tree`. Schema-1 additive: `in_sync_tree` may now be `null` when `CLAIN_SYNCED_ROOT` is unset.
 - spec 0010 — *Single-workspace mode*: `--here` flag on `classify` / `plan recreate` / `plan move`. Rich `Tree` renderer for single-workspace classify. `scan.mode = "tree" | "single"` (additive; absent = `"tree"` for backwards compat).
 - spec 0011 — *Documentation generalisation*: synced-storage framing (GDrive / OneDrive / Dropbox / iCloud Drive as the class, not just GDrive), single-workspace-first quickstart, captured Rich output, reproducible via `examples/capture.py`.
+- spec 0012 — *Plan presentation*: workspace-grouped Rich Panels with relative `Target` / `Command(s)` (default render), and `--table` to keep the pre-0012 single-table layout for copy-paste / spreadsheet use. `--table` and `--json` are mutually exclusive. Persisted plan JSON is unchanged (absolute paths preserved); relativisation is render-only.
 
 ## Pre-history (pre-public, captured as initial baseline)
 
