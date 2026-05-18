@@ -6,8 +6,12 @@ from collections import Counter, defaultdict
 from typing import Any
 
 from rich import box
+from rich.console import Group, RenderableType
+from rich.padding import Padding
 from rich.panel import Panel
+from rich.rule import Rule
 from rich.table import Table
+from rich.text import Text
 from rich.tree import Tree
 
 
@@ -334,3 +338,302 @@ def plan_footer(plan: dict[str, Any], plan_path: str) -> str:
         f"[bold red]Unsafe:[/bold red] {s.get('unsafe_count', 0)}  "
         f"[dim]saved to {plan_path}[/dim]"
     )
+
+
+# ============================================================================
+# Spec 0013 — orientation headers, inline legends, breathing room
+# ============================================================================
+
+# Class display order in the new --here view. Future classes fall through to
+# alphabetical sort.
+_CLASS_DISPLAY_ORDER = ("cache-managed", "ephemeral", "bytecode")
+
+_CLASS_DESCRIPTIONS = {
+    "cache-managed": (
+        "Lives in a per-ecosystem store. Safe to delete if you can re-install — your manifest tells clain how."
+    ),
+    "ephemeral": "Build output. Regenerable by the normal build step.",
+    "bytecode": "Regenerated automatically on the next run.",
+}
+
+# Manifest → recreate-command hint, used in the "Next step" block of the
+# single-workspace classify view. Authoritative derivation lives in clain.plan;
+# this is a presentation pointer.
+_NEXT_STEP_HINTS: tuple[tuple[str, str], ...] = (
+    ("pixi.toml", "pixi install"),
+    ("uv.lock", "uv sync"),
+    ("pnpm-lock.yaml", "pnpm install --frozen-lockfile"),
+    ("package-lock.json", "npm ci"),
+    ("yarn.lock", "yarn install --frozen-lockfile"),
+)
+
+
+def _sync_placement_line(sp: dict[str, Any] | None) -> str:
+    """Render the single Sync placement line from the sync_placement record."""
+    if sp is None:
+        return "[dim]? unknown[/dim]"
+    state = sp.get("state")
+    source = sp.get("source")
+    if state == "synced":
+        provider = sp.get("provider") or sp.get("synced_root") or "synced storage"
+        if source == "env":
+            return f"[yellow]⚠ in CLAIN_SYNCED_ROOT[/yellow]  [dim]({sp.get('synced_root')})[/dim]"
+        return f"[yellow]⚠ in synced storage[/yellow]  [dim]({provider}; autodetected)[/dim]"
+    if state == "local":
+        if source == "env":
+            return f"[green]✓ not in CLAIN_SYNCED_ROOT[/green]  [dim]({sp.get('synced_root')})[/dim]"
+        return "[green]✓ local[/green]  [dim](no synced-storage pattern detected)[/dim]"
+    return "[dim]? unknown[/dim]  [dim](set CLAIN_SYNCED_ROOT to enable in-sync detection)[/dim]"
+
+
+def _orientation(line: str) -> Text:
+    """One-line orientation header above every primary output."""
+    return Text.from_markup(f"[bold cyan]{line}[/]")
+
+
+def _ordered_class_keys(by_class: dict[str, list[str]]) -> list[str]:
+    known = [c for c in _CLASS_DISPLAY_ORDER if c in by_class]
+    others = sorted(k for k in by_class if k not in _CLASS_DISPLAY_ORDER)
+    return known + others
+
+
+def _next_step_block(workspace: dict[str, Any]) -> RenderableType:
+    """Render the 'Next step:' block for the --here classify view."""
+    manifests = set(workspace.get("manifests", []))
+    cmd = None
+    evidence = None
+    for manifest, hint in _NEXT_STEP_HINTS:
+        if manifest in manifests:
+            cmd = hint
+            evidence = manifest
+            break
+    if cmd is None:
+        if "pyproject.toml" in manifests:
+            cmd = "(ambiguous Python toolchain — pin pixi/uv/poetry)"
+            evidence = "pyproject.toml"
+        elif "package.json" in manifests:
+            cmd = "(no lockfile — recreate would resolve fresh versions)"
+            evidence = "package.json"
+        else:
+            cmd = "(no recognised manifest)"
+            evidence = "—"
+    body = Text.from_markup(
+        f"[cyan]clain plan recreate --here --dry[/cyan]\n"
+        f"[dim]→ would run: [bold]{cmd}[/bold]  (derived from {evidence})[/dim]"
+    )
+    return Padding(body, (0, 4))
+
+
+def _classify_legend_block() -> RenderableType:
+    """Compact one-liner key for the --here classify view."""
+    return Padding(
+        Text.from_markup(
+            "[bold dim]Key:[/]  "
+            "[yellow]cache-managed[/] regenerable from a manifest  ·  "
+            "[yellow]bytecode[/] regenerated on use  ·  "
+            "[yellow]ephemeral[/] build output"
+        ),
+        (0, 2),
+    )
+
+
+def classify_here_view(workspace: dict[str, Any], payload: dict[str, Any], *, legend: bool) -> Group:
+    """Spec 0013 single-workspace classify renderable.
+
+    Replaces the bare single_workspace_tree + footer call sequence with a
+    grouped layout: orientation, header block, class groups, next step, meta
+    line, optional legend.
+    """
+    items: list[RenderableType] = []
+    items.append(_orientation("clain classify --here  →  one-workspace classification"))
+    items.append(Text(""))
+
+    header = Table(box=None, show_header=False, padding=(0, 1), pad_edge=False)
+    header.add_column(style="dim", no_wrap=True)
+    header.add_column(overflow="fold")
+    header.add_row("Workspace:", f"[bold]{workspace.get('name', '?')}[/bold]")
+    header.add_row("Location:", workspace.get("path", "?"))
+    header.add_row("Sync placement:", _sync_placement_line(workspace.get("sync_placement")))
+    manifests = ", ".join(workspace.get("manifests", [])) or "—"
+    header.add_row("Manifests:", manifests)
+    items.append(Padding(header, (0, 2)))
+    items.append(Text(""))
+
+    by_class: dict[str, list[str]] = defaultdict(list)
+    for tag in workspace.get("class_tags", []):
+        by_class[tag.get("class", "?")].append(tag.get("relative_path", "?"))
+
+    if by_class:
+        total = sum(len(v) for v in by_class.values())
+        items.append(Padding(Text.from_markup(f"[bold]Regenerable subtrees ({total}):[/bold]"), (0, 2)))
+        items.append(Text(""))
+        for cls_name in _ordered_class_keys(by_class):
+            count = len(by_class[cls_name])
+            desc = _CLASS_DESCRIPTIONS.get(cls_name, "")
+            items.append(
+                Padding(
+                    Text.from_markup(f"[bold yellow]{cls_name}[/] [dim]({count})[/]   [dim]{desc}[/]"),
+                    (0, 4),
+                )
+            )
+            for rel in sorted(by_class[cls_name]):
+                items.append(Padding(Text.from_markup(f"[cyan]{rel}[/]"), (0, 6)))
+            items.append(Text(""))
+    else:
+        items.append(
+            Padding(
+                Text.from_markup("[dim]No regenerable subtrees found (workspace-source only).[/dim]"),
+                (0, 2),
+            )
+        )
+        items.append(Text(""))
+
+    items.append(Padding(Text.from_markup("[bold]Next step:[/bold]"), (0, 2)))
+    items.append(_next_step_block(workspace))
+    items.append(Text(""))
+
+    items.append(Padding(Rule(style="dim"), (0, 2)))
+
+    scan = payload.get("scan", {})
+    duration = scan.get("duration_seconds", "?")
+    meta_str = f"[dim]scan {duration}s[/dim]"
+    items.append(Padding(Text.from_markup(meta_str), (0, 2)))
+
+    if legend:
+        items.append(Text(""))
+        items.append(_classify_legend_block())
+
+    return Group(*items)
+
+
+def _classify_tree_summary(payload: dict[str, Any]) -> str:
+    """One-line orientation/summary above the tree-mode table."""
+    workspaces = payload.get("workspaces", [])
+    in_sync = sum(1 for w in workspaces if w.get("in_sync_tree") is True)
+    unknown = sum(1 for w in workspaces if w.get("in_sync_tree") is None)
+    scan = payload.get("scan", {})
+    sync_summary = (
+        f"[bold]In synced tree:[/bold] {in_sync}/{len(workspaces)}"
+        if not unknown
+        else f"[dim]Sync placement unknown for {unknown}/{len(workspaces)} (autodetect / CLAIN_SYNCED_ROOT)[/dim]"
+    )
+    return (
+        f"[bold]Workspaces:[/bold] {len(workspaces)}  "
+        f"{sync_summary}  "
+        f"[bold]Class tags:[/bold] {scan.get('total_class_tags', 0)}  "
+        f"[dim]scan {scan.get('duration_seconds', '?')}s[/dim]"
+    )
+
+
+def classify_tree_view(payload: dict[str, Any], *, legend: bool) -> Group:
+    """Spec 0013 tree-mode classify renderable.
+
+    Wraps the existing classify_table (unchanged) with an orientation header
+    and structured meta footer; optional legend.
+    """
+    items: list[RenderableType] = []
+    items.append(_orientation("clain classify  →  multi-workspace classification"))
+    items.append(Text(""))
+    items.append(Padding(classify_table(payload), (0, 1)))
+    items.append(Padding(Text.from_markup(_classify_tree_summary(payload)), (0, 2)))
+    if legend:
+        items.append(Text(""))
+        items.append(_classify_legend_block())
+    return Group(*items)
+
+
+def _plan_legend_block() -> RenderableType:
+    """Detailed key for the plan view. Explains every column and the safe-glyph semantics."""
+    legend = Table(box=None, show_header=False, padding=(0, 1), pad_edge=False)
+    legend.add_column(style="bold dim", no_wrap=True)
+    legend.add_column(overflow="fold")
+    legend.add_row(
+        "Type",
+        "[green]delete[/] · [green]recreate[/] · [green]move[/] · [green]smoke-test[/]",
+    )
+    legend.add_row(
+        "Class",
+        "[yellow]cache-managed[/]   regenerable from a manifest (your real win)\n"
+        "[yellow]bytecode[/]        regenerated automatically on use\n"
+        "[yellow]ephemeral[/]       build output, regenerable by the build step",
+    )
+    legend.add_row("Target", "path being acted on, relative to the workspace location")
+    legend.add_row("Command", "the actual shell command this action represents")
+    legend.add_row(
+        "Safe?",
+        "[green]✓[/] — clain has all it needs to run this reproducibly\n"
+        "[red]✗[/] — something blocks safe execution; run `clain plan explain <ACTION_ID>` for the reason",
+    )
+    return Group(
+        Padding(Text.from_markup("[bold]Key[/]"), (0, 2)),
+        Padding(legend, (0, 4)),
+    )
+
+
+def _plan_meta_block(plan: dict[str, Any], saved_path: str, *, mode: str) -> RenderableType:
+    """Structured Summary / Saved / Mode rows replacing the single-line footer."""
+    s = plan.get("summary", {})
+    meta = Table(box=None, show_header=False, padding=(0, 1), pad_edge=False)
+    meta.add_column(style="bold dim", no_wrap=True)
+    meta.add_column(overflow="fold")
+    meta.add_row(
+        "Summary",
+        f"{s.get('workspace_count', 0)} workspace  ·  "
+        f"{s.get('action_count', 0)} actions  ·  "
+        f"[red]{s.get('unsafe_count', 0)} unsafe[/red]",
+    )
+    meta.add_row("Saved", f"[dim]{saved_path}[/dim]")
+    meta.add_row(
+        "Mode",
+        f"{mode} [dim](execution gate is closed — see executor.py)[/dim]",
+    )
+    return Padding(meta, (0, 2))
+
+
+def plan_view(
+    plan: dict[str, Any],
+    *,
+    saved_path: str,
+    legend: bool,
+    flat_table: bool = False,
+    mode: str = "dry-run",
+) -> Group:
+    """Spec 0013 plan renderable.
+
+    Wraps spec 0012's plan_panels (default) or plan_table_flat (--table mode)
+    with orientation header, optional unsafe banner, optional legend, and a
+    structured Summary/Saved/Mode meta block. The inner Panel/Table bodies
+    are unchanged.
+    """
+    items: list[RenderableType] = []
+    kind = plan.get("kind", "plan")
+    here_part = " --here" if plan.get("summary", {}).get("workspace_count", 0) == 1 else ""
+    label = {
+        "recreate": "delete-and-recreate plan",
+        "move": "move-and-triage plan",
+    }.get(kind, f"{kind} plan")
+    items.append(_orientation(f"clain plan {kind}{here_part} --dry  →  {label}"))
+    items.append(Text(""))
+
+    unsafe = unsafe_actions_table(plan)
+    if unsafe is not None:
+        items.append(Padding(unsafe, (0, 2)))
+        items.append(Text(""))
+
+    if flat_table:
+        items.append(Padding(plan_table_flat(plan), (0, 1)))
+    else:
+        for panel in plan_panels(plan):
+            # Increase the inner padding for breathing room (was (0, 1); now (1, 2)).
+            panel.padding = (1, 2)
+            items.append(Padding(panel, (0, 2)))
+
+    items.append(Text(""))
+
+    if legend:
+        items.append(_plan_legend_block())
+        items.append(Text(""))
+
+    items.append(Padding(Rule(style="dim"), (0, 2)))
+    items.append(_plan_meta_block(plan, saved_path, mode=mode))
+    return Group(*items)

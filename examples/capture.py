@@ -21,14 +21,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 from clain import classify as cls  # noqa: E402
 from clain import plan as planmod  # noqa: E402
 from clain.ui.tables import (  # noqa: E402
-    classify_footer,
-    classify_table,
-    plan_footer,
-    plan_header,
-    plan_panels,
+    classify_here_view,
+    classify_tree_view,
     plan_table_flat,
-    single_workspace_footer,
-    single_workspace_tree,
+    plan_view,
 )
 
 WIDTH = 78
@@ -49,36 +45,42 @@ def anon_payload(payload):
     return json.loads(s)
 
 
-# Multi-workspace classify
+# Multi-workspace classify (spec 0013: tree view, legend off by default)
 multi = cls.run_classify(Path("/tmp/clain-captures/dev"), None)
 multi = anon_payload(multi)
-multi_text = capture(classify_table(multi)) + "\n" + capture(classify_footer(multi))
+multi_text = capture(classify_tree_view(multi, legend=False))
 
-# Single-workspace classify
+# Single-workspace classify (spec 0013: here view, legend on by default)
 single = cls.run_classify(Path("/tmp/clain-captures/single/example-workspace"), None, single=True)
 single = anon_payload(single)
 ws = single["workspaces"][0]
-single_text = capture(single_workspace_tree(ws, single)) + "\n" + capture(
-    single_workspace_footer(ws, single)
-)
+single_text = capture(classify_here_view(ws, single, legend=True))
 
-# Plan recreate (single) — default Panel render (spec 0012)
+# Plan recreate (single) — default panel render with spec 0013 wrapping (legend on)
 plan = planmod.build_recreate_plan(single)
 plan = anon_payload(plan)
-plan_panel_text = capture(plan_header(plan)) + "\n"
-for panel in plan_panels(plan):
-    plan_panel_text += capture(panel)
-plan_panel_text += "\n" + capture(
-    plan_footer(plan, "$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json")
+plan_panel_text = capture(
+    plan_view(
+        plan,
+        saved_path="$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json",
+        legend=True,
+    )
 )
 
-# Plan recreate (single) — --table render (spec 0012, backwards-compat)
-plan_table_text = capture(plan_table_flat(plan)) + "\n" + capture(
-    plan_footer(plan, "$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json")
+# Plan recreate (single) — --table render (spec 0012/0013, legend off)
+plan_table_text = capture(
+    plan_view(
+        plan,
+        saved_path="$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json",
+        legend=False,
+        flat_table=True,
+    )
 )
 
 Path("/tmp/clain-captures/multi.txt").write_text(multi_text, encoding="utf-8")
 Path("/tmp/clain-captures/single.txt").write_text(single_text, encoding="utf-8")
 Path("/tmp/clain-captures/plan.txt").write_text(plan_panel_text, encoding="utf-8")
 Path("/tmp/clain-captures/plan-table.txt").write_text(plan_table_text, encoding="utf-8")
+# `plan_table_flat` directly — kept for reference even though plan_view wraps it.
+_ = plan_table_flat  # used to keep the import; spec-0012 snapshot test exercises it.
 print("ok")

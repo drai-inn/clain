@@ -1,41 +1,45 @@
-                          Plan: recreate (7 actions)                          
-┏━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┓
-┃ Workspace   ┃ Type     ┃ Class        ┃ Target      ┃ Command(s)   ┃ Safe? ┃
-┡━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━┩
-│ example-wo… │ delete   │ cache-manag… │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.pixi     │ le-workspace │       │
-│             │          │              │             │ /.pixi'      │       │
-│ example-wo… │ recreate │ cache-manag… │ ~/dev/examp │ pixi install │   ✓   │
-│             │          │              │ le-workspac │              │       │
-│             │          │              │ e           │              │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.pytest_c │ le-workspace │       │
-│             │          │              │ ache        │ /.pytest_cac │       │
-│             │          │              │             │ he'          │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.ruff_cac │ le-workspace │       │
-│             │          │              │ he          │ /.ruff_cache │       │
-│             │          │              │             │ '            │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.mypy_cac │ le-workspace │       │
-│             │          │              │ he          │ /.mypy_cache │       │
-│             │          │              │             │ '            │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/tests/__p │ le-workspace │       │
-│             │          │              │ ycache__    │ /tests/__pyc │       │
-│             │          │              │             │ ache__'      │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/src/examp │ le-workspace │       │
-│             │          │              │ le/__pycach │ /src/example │       │
-│             │          │              │ e__         │ /__pycache__ │       │
-│             │          │              │             │ '            │       │
-└─────────────┴──────────┴──────────────┴─────────────┴──────────────┴───────┘
+clain plan recreate --here --dry  →  delete-and-recreate plan
 
-Workspaces: 1  Actions: 7  Unsafe: 0  saved to 
-$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json
+                          Plan: recreate (7 actions)                          
+ ┏━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━┓ 
+ ┃ Workspace   ┃ Type     ┃ Class       ┃ Target      ┃ Command(s)  ┃ Safe? ┃ 
+ ┡━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━┩ 
+ │ example-wo… │ delete   │ cache-mana… │ ~/dev/examp │ rm -rf      │   ✓   │ 
+ │             │          │             │ le-workspac │ '~/dev/exam │       │ 
+ │             │          │             │ e/.pixi     │ ple-workspa │       │ 
+ │             │          │             │             │ ce/.pixi'   │       │ 
+ │ example-wo… │ recreate │ cache-mana… │ ~/dev/examp │ pixi        │   ✓   │ 
+ │             │          │             │ le-workspac │ install     │       │ 
+ │             │          │             │ e           │             │       │ 
+ │ example-wo… │ delete   │ bytecode    │ ~/dev/examp │ rm -rf      │   ✓   │ 
+ │             │          │             │ le-workspac │ '~/dev/exam │       │ 
+ │             │          │             │ e/.pytest_c │ ple-workspa │       │ 
+ │             │          │             │ ache        │ ce/.pytest_ │       │ 
+ │             │          │             │             │ cache'      │       │ 
+ │ example-wo… │ delete   │ bytecode    │ ~/dev/examp │ rm -rf      │   ✓   │ 
+ │             │          │             │ le-workspac │ '~/dev/exam │       │ 
+ │             │          │             │ e/.ruff_cac │ ple-workspa │       │ 
+ │             │          │             │ he          │ ce/.ruff_ca │       │ 
+ │             │          │             │             │ che'        │       │ 
+ │ example-wo… │ delete   │ bytecode    │ ~/dev/examp │ rm -rf      │   ✓   │ 
+ │             │          │             │ le-workspac │ '~/dev/exam │       │ 
+ │             │          │             │ e/.mypy_cac │ ple-workspa │       │ 
+ │             │          │             │ he          │ ce/.mypy_ca │       │ 
+ │             │          │             │             │ che'        │       │ 
+ │ example-wo… │ delete   │ bytecode    │ ~/dev/examp │ rm -rf      │   ✓   │ 
+ │             │          │             │ le-workspac │ '~/dev/exam │       │ 
+ │             │          │             │ e/tests/__p │ ple-workspa │       │ 
+ │             │          │             │ ycache__    │ ce/tests/__ │       │ 
+ │             │          │             │             │ pycache__'  │       │ 
+ │ example-wo… │ delete   │ bytecode    │ ~/dev/examp │ rm -rf      │   ✓   │ 
+ │             │          │             │ le-workspac │ '~/dev/exam │       │ 
+ │             │          │             │ e/src/examp │ ple-workspa │       │ 
+ │             │          │             │ le/__pycach │ ce/src/exam │       │ 
+ │             │          │             │ e__         │ ple/__pycac │       │ 
+ │             │          │             │             │ he__'       │       │ 
+ └─────────────┴──────────┴─────────────┴─────────────┴─────────────┴───────┘ 
+
+  ──────────────────────────────────────────────────────────────────────────  
+  Summary  1 workspace  ·  7 actions  ·  0 unsafe                             
+  Saved    $XDG_STATE_HOME/clain/plans/recreate-<UTC>.json                    
+  Mode     dry-run (execution gate is closed — see executor.py)               

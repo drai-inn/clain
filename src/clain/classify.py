@@ -28,6 +28,7 @@ from clain.state import (
     read_json,
     write_json,
 )
+from clain.sync_detect import detect_synced_storage
 
 SCHEMA_VERSION = 1
 
@@ -42,10 +43,55 @@ class ClassTag:
 
 
 @dataclass
+class SyncPlacement:
+    """Per-workspace sync-placement record (spec 0013).
+
+    `state` aligns with the legacy `in_sync_tree` boolean:
+        synced  ⇒ in_sync_tree == True
+        local   ⇒ in_sync_tree == False
+        unknown ⇒ in_sync_tree is None
+
+    `source` tells the reader how the answer was determined:
+        autodetect — pattern matched on macOS; provider names which one
+        unset      — non-macOS platform; sync placement is not autodetected
+    """
+
+    state: str  # "synced" | "local" | "unknown"
+    provider: str | None
+    source: str  # "autodetect" | "unset"
+    synced_root: str | None  # the matched-root prefix when state == "synced"; null otherwise
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "state": self.state,
+            "provider": self.provider,
+            "source": self.source,
+            "synced_root": self.synced_root,
+        }
+
+
+def _resolve_sync_placement(workspace: Path) -> SyncPlacement:
+    """Resolve sync placement via macOS autodetection (spec 0013).
+
+    `CLAIN_SYNCED_ROOT` was removed in spec 0013. The CLI hard-errors at
+    startup if the developer still has it set; by the time we reach this
+    function, autodetect is the only source.
+    """
+    state, provider, matched_root = detect_synced_storage(workspace)
+    return SyncPlacement(
+        state=state,
+        provider=provider,
+        source="autodetect" if state != "unknown" else "unset",
+        synced_root=matched_root,
+    )
+
+
+@dataclass
 class WorkspaceClass:
     name: str
     path: str
     in_sync_tree: bool | None
+    sync_placement: SyncPlacement
     class_tags: list[ClassTag] = field(default_factory=list)
     manifests: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -55,6 +101,7 @@ class WorkspaceClass:
             "name": self.name,
             "path": self.path,
             "in_sync_tree": self.in_sync_tree,
+            "sync_placement": self.sync_placement.to_dict(),
             "class_tags": [t.to_dict() for t in self.class_tags],
             "manifests": sorted(self.manifests),
             "errors": self.errors,
@@ -94,17 +141,21 @@ def _is_under(path: Path, root: Path) -> bool:
         return False
 
 
-def classify_workspace(workspace: Path, synced_root: Path | None, rules: Rules) -> WorkspaceClass:
+def classify_workspace(workspace: Path, rules: Rules) -> WorkspaceClass:
     """Walk a workspace, prune at class boundaries, record tags + manifests.
 
-    `synced_root` is None when `CLAIN_SYNCED_ROOT` is unset; in that case
-    `in_sync_tree` resolves to None ("unknown") rather than False.
+    Sync placement is resolved per spec 0013 via macOS autodetect; off-macOS
+    the state is "unknown". `CLAIN_SYNCED_ROOT` was removed in spec 0013.
     """
-    in_sync: bool | None = None if synced_root is None else _is_under(workspace, synced_root)
+    sync_placement = _resolve_sync_placement(workspace)
+    in_sync: bool | None = (
+        True if sync_placement.state == "synced" else False if sync_placement.state == "local" else None
+    )
     result = WorkspaceClass(
         name=workspace.name,
         path=str(workspace),
         in_sync_tree=in_sync,
+        sync_placement=sync_placement,
         manifests=_detect_manifests(workspace, rules),
     )
 
@@ -133,7 +184,6 @@ def classify_workspace(workspace: Path, synced_root: Path | None, rules: Rules) 
 
 def run_classify(
     root: Path,
-    synced_root: Path | None,
     rules: Rules | None = None,
     *,
     single: bool = False,
@@ -143,6 +193,9 @@ def run_classify(
     Per spec 0010, `single=True` treats ROOT itself as one workspace rather than
     enumerating depth-1 children. The JSON shape is unchanged (`workspaces` is a
     list with exactly one entry in single mode); only `scan.mode` differs.
+
+    Spec 0013 removed the `synced_root` parameter — sync placement is now
+    resolved per workspace via macOS autodetection (see `_resolve_sync_placement`).
     """
     if not root.exists():
         raise FileNotFoundError(f"Root does not exist: {root}")
@@ -153,11 +206,10 @@ def run_classify(
 
     started = time.time()
     if single:
-        workspaces = [classify_workspace(root, synced_root, rules)]
+        workspaces = [classify_workspace(root, rules)]
     else:
         workspaces = [
-            classify_workspace(ws, synced_root, rules)
-            for ws in sorted(_iter_workspaces(root), key=lambda p: p.name.lower())
+            classify_workspace(ws, rules) for ws in sorted(_iter_workspaces(root), key=lambda p: p.name.lower())
         ]
     ended = time.time()
 
@@ -166,7 +218,6 @@ def run_classify(
         "schema": SCHEMA_VERSION,
         "scan": {
             "root": str(root),
-            "synced_root": str(synced_root) if synced_root is not None else None,
             "mode": "single" if single else "tree",
             "started_at": datetime.fromtimestamp(started, tz=UTC).isoformat(timespec="seconds"),
             "ended_at": datetime.fromtimestamp(ended, tz=UTC).isoformat(timespec="seconds"),
@@ -214,7 +265,6 @@ def log_run(root: Path, payload: dict[str, Any]) -> None:
 
 def get_or_run(
     root: Path,
-    synced_root: Path | None,
     *,
     refresh: bool = False,
     use_cache: bool = True,
@@ -230,7 +280,7 @@ def get_or_run(
             wanted_mode = "single" if single else "tree"
             if cached_mode == wanted_mode:
                 return cached, True
-    payload = run_classify(root, synced_root, rules, single=single)
+    payload = run_classify(root, rules, single=single)
     if use_cache:
         save_cache(root, payload)
     log_run(root, payload)

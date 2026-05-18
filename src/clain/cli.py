@@ -9,20 +9,20 @@ import typer
 from clain import __version__
 from clain import classify as cls
 from clain import plan as planmod
-from clain.config import DevRootNotConfigured, resolve_dev_root, resolve_synced_root
+from clain.config import (
+    ENV_SYNCED_ROOT_DEPRECATED,
+    DevRootNotConfigured,
+    resolve_dev_root,
+)
 from clain.console import console, err_console
 from clain.executor import EXECUTE_ENABLED, ExecuteGateClosed, try_execute
 from clain.state import read_json
+from clain.ui.legend import ENV_VAR as LEGEND_ENV_VAR
+from clain.ui.legend import InvalidLegendValue, should_show_legend
 from clain.ui.tables import (
-    classify_footer,
-    classify_table,
-    plan_footer,
-    plan_header,
-    plan_panels,
-    plan_table_flat,
-    single_workspace_footer,
-    single_workspace_tree,
-    unsafe_actions_table,
+    classify_here_view,
+    classify_tree_view,
+    plan_view,
     workspace_detail_table,
 )
 
@@ -47,6 +47,29 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+def _check_deprecated_env() -> None:
+    """Spec 0013: CLAIN_SYNCED_ROOT was removed. If set, hard-error.
+
+    Runs in `main()` (the app callback), which fires before any subcommand.
+    `--version` and `--help` use eager callbacks that exit before this runs,
+    so the developer can still discover what changed even with the env var set.
+    """
+    import os
+
+    if os.environ.get(ENV_SYNCED_ROOT_DEPRECATED):
+        err_console.print(
+            f"[red]Error:[/red] [bold]{ENV_SYNCED_ROOT_DEPRECATED}[/bold] is set in your "
+            "environment, but it was removed in spec 0013 "
+            "([bold]specs/0013-output-legibility.md[/bold]). Sync placement is now "
+            "autodetected on macOS; the env var has no effect and refusing to run "
+            "with it set surfaces the change rather than silently ignoring your "
+            "stale config.\n"
+            f"\n"
+            f"  [dim]To proceed:[/dim] [cyan]unset {ENV_SYNCED_ROOT_DEPRECATED}[/cyan]"
+        )
+        raise typer.Exit(code=2)
+
+
 @app.callback()
 def main(
     version: bool = typer.Option(
@@ -58,12 +81,38 @@ def main(
     ),
 ) -> None:
     """clain — manage local AI-dev workspaces."""
+    _check_deprecated_env()
 
 
 def _resolve_or_exit(root: Path | None) -> Path:
     try:
         return resolve_dev_root(root)
     except DevRootNotConfigured as exc:
+        err_console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+
+
+def _resolve_legend(here: bool, legend: bool, no_legend: bool) -> bool:
+    """Resolve the legend toggle per spec 0013 precedence.
+
+    --legend / --no-legend mutex → CLI error. Otherwise: explicit flag wins,
+    then CLAIN_LEGEND env, then mode default (--here on, tree off).
+    """
+    import os
+
+    if legend and no_legend:
+        err_console.print("[red]--legend and --no-legend are mutually exclusive.[/red]")
+        raise typer.Exit(code=2)
+    flag: bool | None
+    if legend:
+        flag = True
+    elif no_legend:
+        flag = False
+    else:
+        flag = None
+    try:
+        return should_show_legend(here=here, flag=flag, env=os.environ.get(LEGEND_ENV_VAR))
+    except InvalidLegendValue as exc:
         err_console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=2) from exc
 
@@ -85,6 +134,8 @@ def classify(
         help="Treat ROOT (or cwd) as a single workspace, not as a parent of workspaces. "
         "Useful for tidying the project you're currently in.",
     ),
+    legend: bool = typer.Option(False, "--legend", help="Force the legend on (default for --here)."),
+    no_legend: bool = typer.Option(False, "--no-legend", help="Force the legend off (default for tree mode)."),
     refresh: bool = typer.Option(False, "--refresh", help="Force a fresh scan."),
     no_cache: bool = typer.Option(False, "--no-cache", help="Skip cache for this run."),
 ) -> None:
@@ -101,8 +152,9 @@ def classify(
         )
         raise typer.Exit(code=2)
 
+    legend_on = _resolve_legend(here=here, legend=legend, no_legend=no_legend)
+
     resolved = (root or Path.cwd()).expanduser().resolve() if here else _resolve_or_exit(root)
-    synced = resolve_synced_root()
 
     if not resolved.exists():
         err_console.print(f"[red]Root does not exist:[/red] {resolved}")
@@ -112,7 +164,7 @@ def classify(
         raise typer.Exit(code=2)
 
     try:
-        payload, cache_hit = cls.get_or_run(resolved, synced, refresh=refresh, use_cache=not no_cache, single=here)
+        payload, cache_hit = cls.get_or_run(resolved, refresh=refresh, use_cache=not no_cache, single=here)
     except (FileNotFoundError, NotADirectoryError) as exc:
         err_console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=2) from exc
@@ -123,10 +175,8 @@ def classify(
         return
 
     if here:
-        # Single-workspace render uses a Rich Tree, not the multi-row table.
         ws_payload = payload["workspaces"][0]
-        console.print(single_workspace_tree(ws_payload, payload))
-        console.print(single_workspace_footer(ws_payload, payload))
+        console.print(classify_here_view(ws_payload, payload, legend=legend_on))
         if cache_hit:
             console.print("[dim](cached — pass --refresh to rescan)[/dim]")
         return
@@ -142,8 +192,7 @@ def classify(
         console.print(workspace_detail_table(match))
         return
 
-    console.print(classify_table(payload))
-    console.print(classify_footer(payload))
+    console.print(classify_tree_view(payload, legend=legend_on))
     if cache_hit:
         console.print("[dim](cached — pass --refresh to rescan)[/dim]")
 
@@ -156,7 +205,13 @@ def _load_classify_or_exit(resolved: Path) -> dict[str, object]:
     return payload
 
 
-def _emit_plan(plan: dict[str, object], json_out: bool, dry: bool, flat_table: bool = False) -> None:
+def _emit_plan(
+    plan: dict[str, object],
+    json_out: bool,
+    dry: bool,
+    flat_table: bool = False,
+    legend: bool = False,
+) -> None:
     """Render + persist the plan, then attempt execution unless --dry was passed.
 
     Render modes (spec 0012):
@@ -177,17 +232,17 @@ def _emit_plan(plan: dict[str, object], json_out: bool, dry: bool, flat_table: b
         sys.stdout.write(json.dumps(plan, indent=2, sort_keys=True))
         sys.stdout.write("\n")
     else:
-        unsafe = unsafe_actions_table(plan)
-        if unsafe is not None:
-            console.print(unsafe)
-            console.print()
-        if flat_table:
-            console.print(plan_table_flat(plan))
-        else:
-            console.print(plan_header(plan))
-            for panel in plan_panels(plan):
-                console.print(panel)
-        console.print(plan_footer(plan, str(saved)))
+        # Spec 0013: plan_view wraps the spec-0012 panels (or flat table) with
+        # orientation header, optional legend, structured Summary/Saved/Mode.
+        console.print(
+            plan_view(
+                plan,
+                saved_path=str(saved),
+                legend=legend,
+                flat_table=flat_table,
+                mode="dry-run" if dry else "execute (gated)",
+            )
+        )
 
     if dry:
         if not json_out:
@@ -223,6 +278,8 @@ def plan_recreate(
         help="Single-workspace mode: ROOT (or cwd) IS the workspace, not a parent of workspaces. "
         "Requires a prior `clain classify --here` against the same path.",
     ),
+    legend: bool = typer.Option(False, "--legend", help="Force the legend on (default for --here)."),
+    no_legend: bool = typer.Option(False, "--no-legend", help="Force the legend off (default for tree mode)."),
 ) -> None:
     """Delete + recreate plan for cache-managed/ephemeral/bytecode subtrees.
 
@@ -237,10 +294,11 @@ def plan_recreate(
             "to stdout in a single format; only one stdout format may be selected."
         )
         raise typer.Exit(code=2)
+    legend_on = _resolve_legend(here=here, legend=legend, no_legend=no_legend)
     resolved = (root or Path.cwd()).expanduser().resolve() if here else _resolve_or_exit(root)
     classify_payload = _load_classify_or_exit(resolved)
     plan = planmod.build_recreate_plan(classify_payload)
-    _emit_plan(plan, json_out, dry, flat_table=flat_table)
+    _emit_plan(plan, json_out, dry, flat_table=flat_table, legend=legend_on)
 
 
 @plan_app.command("move")
@@ -264,6 +322,8 @@ def plan_move(
         help="Single-workspace mode: ROOT (or cwd) IS the workspace. The plan will move this one workspace, "
         "if it's in the synced tree, to <DEST>/<workspace-name>/.",
     ),
+    legend: bool = typer.Option(False, "--legend", help="Force the legend on (default for --here)."),
+    no_legend: bool = typer.Option(False, "--no-legend", help="Force the legend off (default for tree mode)."),
 ) -> None:
     """Move + triage plan for workspaces sitting in the synced tree.
 
@@ -281,10 +341,11 @@ def plan_move(
     if dest is None:
         err_console.print("[red]--dest is required for plan move (e.g. --dest ~/dev/).[/red]")
         raise typer.Exit(code=2)
+    legend_on = _resolve_legend(here=here, legend=legend, no_legend=no_legend)
     resolved = (root or Path.cwd()).expanduser().resolve() if here else _resolve_or_exit(root)
     classify_payload = _load_classify_or_exit(resolved)
     plan = planmod.build_move_plan(classify_payload, dest.expanduser().resolve())
-    _emit_plan(plan, json_out, dry, flat_table=flat_table)
+    _emit_plan(plan, json_out, dry, flat_table=flat_table, legend=legend_on)
 
 
 @plan_app.command("explain")

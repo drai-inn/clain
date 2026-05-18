@@ -14,7 +14,12 @@ import os
 from pathlib import Path
 
 ENV_DEV_ROOT = "CLAIN_DEV_ROOT"
-ENV_SYNCED_ROOT = "CLAIN_SYNCED_ROOT"
+
+# Spec 0013 removed CLAIN_SYNCED_ROOT. The name lives on as a constant only so
+# the deprecation check in `clain.cli` can refer to it without re-typing the
+# string. There is no `resolve_synced_root()` — sync placement is now resolved
+# by `clain.sync_detect.detect_synced_storage` against the workspace path.
+ENV_SYNCED_ROOT_DEPRECATED = "CLAIN_SYNCED_ROOT"
 
 CACHE_TTL_SECONDS = 24 * 60 * 60
 
@@ -34,19 +39,6 @@ def resolve_dev_root(explicit: Path | None) -> Path:
     if env:
         return Path(env).expanduser().resolve()
     raise DevRootNotConfigured(f"No dev root configured. Pass a positional argument or set ${ENV_DEV_ROOT}.")
-
-
-def resolve_synced_root() -> Path | None:
-    """Resolve the synced-tree marker used by classify's in_sync_tree test.
-
-    Returns None when CLAIN_SYNCED_ROOT is unset, signalling "unknown" rather
-    than defaulting to the dev root. Spec 0009 changed this: defaulting to the
-    dev root made `in_sync_tree` always-true and therefore meaningless.
-    """
-    env = os.environ.get(ENV_SYNCED_ROOT)
-    if env:
-        return Path(env).expanduser().resolve()
-    return None
 
 
 def xdg_state_home() -> Path:

@@ -37,27 +37,45 @@ pixi run clain classify --here
 `clain` looks at the project root, identifies which manifests are present (`pyproject.toml`, `pixi.toml`, `package.json`, `pnpm-lock.yaml`, `uv.lock`, …), walks the project tree stopping at every class boundary (`node_modules/`, `.venv/`, `.pixi/`, `dist/`, `__pycache__/`, etc.), and produces this:
 
 ```text
-example-workspace  (~/dev/example-workspace)
-├── Manifests: pixi.toml, pyproject.toml
-├── Sync placement: ? unknown (CLAIN_SYNCED_ROOT not set)
-├── bytecode
-│   ├── .mypy_cache
-│   ├── .pytest_cache
-│   ├── .ruff_cache
-│   ├── src/example/__pycache__
-│   └── tests/__pycache__
-└── cache-managed
-    └── .pixi
+clain classify --here  →  one-workspace classification
 
-Next: clain plan recreate --here --dry  →  pixi install
+  Workspace:       example-workspace
+  Location:        ~/dev/example-workspace
+  Sync placement:  ✓ local  (no synced-storage pattern detected)
+  Manifests:       pixi.toml, pyproject.toml
+
+  Regenerable subtrees (6):
+
+    cache-managed (1)   Lives in a per-ecosystem store. Safe to delete if
+    you can re-install — your manifest tells clain how.
+      .pixi
+
+    bytecode (5)   Regenerated automatically on the next run.
+      .mypy_cache
+      .pytest_cache
+      .ruff_cache
+      src/example/__pycache__
+      tests/__pycache__
+
+  Next step:
+    clain plan recreate --here --dry
+    → would run: pixi install  (derived from pixi.toml)
+
+  ──────────────────────────────────────────────────────────────────────
+  scan 0.001s
+
+  Key:  cache-managed regenerable from a manifest  ·  bytecode
+  regenerated on use  ·  ephemeral build output
 ```
 
 A few things to notice:
 
-- **Manifests** at the top tell you what package manager `clain` will use to derive the recreate command (here: `pixi install` from `pixi.toml`).
-- **`Sync placement: ?`** means you haven't set `CLAIN_SYNCED_ROOT`. If your project lives inside Google Drive / OneDrive / Dropbox / iCloud Drive, set that env var to your synced-storage root path so `clain` can tell you whether the project is sitting inside it.
-- The **class branches** name what's regenerable. `.pixi/` is one entry (the scan stops there); `__pycache__` directories appear individually because they're shallower and don't have a containing wrapper.
-- The **Next:** line is the *categorical* hint at what `plan recreate --here --dry` will produce.
+- **Header block** (Workspace / Location / Sync placement / Manifests) summarises the workspace before we look at its insides.
+- **Sync placement** is autodetected on macOS against six known synced-storage path patterns (Google Drive, OneDrive, Dropbox, Box, iCloud Drive). On non-macOS, sync placement is reported `? unknown` — read your workspace path yourself. (There used to be a `CLAIN_SYNCED_ROOT` env var override; spec 0013 removed it because autodetect covers the real cases and the env var conflated two orthogonal concerns. If you have it set in your shell, `clain` hard-errors on startup with a pointer to unset it.)
+- **Manifests** drive the recreate command derivation (here: `pixi install` from `pixi.toml`).
+- The **Regenerable subtrees** section names each class with a one-line description of what that class *means* before listing its members. The scan stops at every class boundary — `.pixi/` is one entry, not 100 nested `__pycache__` directories.
+- The **Next step** block names the command and what it would run.
+- The **Key** at the bottom is a quick reminder of class semantics. Use `--no-legend` to suppress it (or set `CLAIN_LEGEND=off`).
 
 Then ask for the plan:
 
@@ -66,29 +84,35 @@ pixi run clain plan recreate --here --dry
 ```
 
 ```text
-Plan: recreate (7 actions)
+clain plan recreate --here --dry  →  delete-and-recreate plan
 
-╭─ example-workspace  ~/dev/example-workspace ───────────────────────────────╮
-│                                                                            │
-│   Type       Class           Target             Command(s)         Safe?   │
-│  ────────────────────────────────────────────────────────────────────────  │
-│   delete     cache-managed   .pixi              rm -rf '.pixi'       ✓     │
-│   recreate   cache-managed   .                  pixi install         ✓     │
-│   delete     bytecode        .pytest_cache      rm -rf               ✓     │
-│                                                 '.pytest_cache'            │
-│   delete     bytecode        .ruff_cache        rm -rf               ✓     │
-│                                                 '.ruff_cache'              │
-│   delete     bytecode        .mypy_cache        rm -rf               ✓     │
-│                                                 '.mypy_cache'              │
-│   delete     bytecode        tests/__pycache_   rm -rf               ✓     │
-│                              _                  'tests/__pycache__'        │
-│   delete     bytecode        src/example/__py   rm -rf               ✓     │
-│                              cache__            'src/example/__pyc…'       │
-│                                                                            │
-╰────────────────────────────────────────────────────────────────────────────╯
+  ╭─ example-workspace  ~/dev/example-workspace ───────────────────────────╮
+  │                                                                        │
+  │    Type       Class           Target          Command(s)      Safe?    │
+  │   ──────────────────────────────────────────────────────────────────   │
+  │    delete     cache-managed   .pixi           rm -rf '.pixi'    ✓      │
+  │    recreate   cache-managed   .               pixi install      ✓      │
+  │    delete     bytecode        .pytest_cache   rm -rf            ✓      │
+  │                                               '.pytest_cache'          │
+  │    ... (4 more bytecode rows)                                          │
+  │                                                                        │
+  ╰────────────────────────────────────────────────────────────────────────╯
 
-Workspaces: 1  Actions: 7  Unsafe: 0  saved to 
-$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json
+  Key
+    Type     delete · recreate · move · smoke-test
+    Class    cache-managed   regenerable from a manifest (your real win)
+             bytecode        regenerated automatically on use
+             ephemeral       build output, regenerable by the build step
+    Target   path being acted on, relative to the workspace location
+    Command  the actual shell command this action represents
+    Safe?    ✓ — clain has all it needs to run this reproducibly
+             ✗ — something blocks safe execution; run `clain plan explain
+             <ACTION_ID>` for the reason
+
+  ──────────────────────────────────────────────────────────────────────────
+  Summary  1 workspace  ·  7 actions  ·  0 unsafe
+  Saved    $XDG_STATE_HOME/clain/plans/recreate-<UTC>.json
+  Mode     dry-run (execution gate is closed — see executor.py)
 ```
 
 Read this top-down. The plan is **7 actions, 0 unsafe**, with `pixi install` as the single recreate step. The workspace name and its absolute location live in the panel title (once); inside the panel, `Target` and `Command(s)` are **relative to that location**, so paths like `.pixi` and `tests/__pycache__` don't repeat the workspace prefix on every row.
@@ -115,7 +139,6 @@ For "I have a whole `dev/` directory full of stuff":
 
 ```sh
 export CLAIN_DEV_ROOT=~/some/dev/tree
-export CLAIN_SYNCED_ROOT="$HOME/Library/CloudStorage/..."   # optional but recommended
 pixi run clain classify
 ```
 
@@ -136,10 +159,10 @@ In tree mode `clain` enumerates each workspace at depth-1 under `CLAIN_DEV_ROOT`
 └─────────────────┴──────────────┴────────────────┴─────────────────┴────────┘
 ```
 
-The `In sync tree` column reports `✓` / `·` / `?`:
-- `✓` — workspace is under `CLAIN_SYNCED_ROOT` (likely candidate for `clain plan move`)
-- `·` — workspace is *not* under the synced root
-- `?` — `CLAIN_SYNCED_ROOT` is unset, so `clain` can't say
+The `In sync tree` column reports `✓` / `·` / `?` based on macOS autodetection against known synced-storage path patterns (Google Drive, OneDrive, Dropbox, Box, iCloud Drive):
+- `⚠` — workspace is under a recognised synced-storage tree (likely candidate for `clain plan move`)
+- `✓` — workspace is local (no synced-storage pattern matched)
+- `?` — sync placement is not autodetected on this platform (non-macOS)
 
 Drill into one workspace's full class-tag listing with `--workspace NAME`. Note that `--workspace` is tree-mode only — `--here` and `--workspace` are mutually exclusive.
 
@@ -176,8 +199,7 @@ Done. The output tells you what's a regenerable cache and what's source. The `Ne
 
 ### "I have 30 Node workspaces under a synced drive — what's the right sequence?"
 
-1. `export CLAIN_SYNCED_ROOT=...` (the synced storage root).
-2. `clain classify --refresh` — see which workspaces are in the sync tree.
+1. `clain classify --refresh` — see which workspaces are in the sync tree. On macOS, this is autodetected against known synced-storage path patterns.
 3. `clain plan move --dest ~/dev/ --dry` — preview moves out of the sync tree.
 4. For each workspace you want to migrate: run the rsync command from the plan by hand.
 5. `clain classify ~/dev/` — re-classify against the new local root.

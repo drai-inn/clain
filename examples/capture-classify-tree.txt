@@ -1,17 +1,15 @@
-                           Workspace classification                           
-┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
-┃ Workspace       ┃ In sync tree ┃ Class tags     ┃ Manifests       ┃ Errors ┃
-┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
-│ example-ambigu… │      ?       │ cache-managed… │ pyproject.toml  │        │
-│ example-fronte… │      ?       │ cache-managed… │ package.json,   │        │
-│                 │              │ ephemeralx1    │ pnpm-lock.yaml  │        │
-│ example-pipeli… │      ?       │ cache-managed… │ pixi.toml,      │        │
-│                 │              │                │ pyproject.toml  │        │
-│ example-uv-pro… │      ?       │ cache-managed… │ pyproject.toml, │        │
-│                 │              │                │ uv.lock         │        │
-└─────────────────┴──────────────┴────────────────┴─────────────────┴────────┘
+clain classify  →  multi-workspace classification
 
-Workspaces: 4  Sync placement: unknown (CLAIN_SYNCED_ROOT not set)  Class 
-tags: 5  scan 0.001s
-Pass CLAIN_SYNCED_ROOT (e.g. your GDrive / OneDrive / Dropbox / iCloud Drive 
-path) to enable in-sync detection.
+                           Workspace classification                           
+ ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━┓ 
+ ┃ Workspace      ┃ In sync tree ┃ Class tags     ┃ Manifests      ┃ Errors ┃ 
+ ┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━┩ 
+ │ example-ambig… │      ·       │ cache-managed… │ pyproject.toml │        │ 
+ │ example-front… │      ·       │ cache-managed… │ package.json,  │        │ 
+ │                │              │ ephemeralx1    │ pnpm-lock.yaml │        │ 
+ │ example-pipel… │      ·       │ cache-managed… │ pixi.toml,     │        │ 
+ │                │              │                │ pyproject.toml │        │ 
+ │ example-uv-pr… │      ·       │ cache-managed… │ pyproject.toml │        │ 
+ │                │              │                │ , uv.lock      │        │ 
+ └────────────────┴──────────────┴────────────────┴────────────────┴────────┘ 
+  Workspaces: 4  In synced tree: 0/4  Class tags: 5  scan 0.008s              

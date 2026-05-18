@@ -16,22 +16,32 @@ pixi run clain plan recreate --here --dry      # what a clean rebuild would look
 Here's what the single-workspace classify looks like against a project with both a Pixi env and the usual Python tool caches:
 
 ```text
-example-workspace  (~/dev/example-workspace)
-├── Manifests: pixi.toml, pyproject.toml
-├── Sync placement: ? unknown (CLAIN_SYNCED_ROOT not set)
-├── bytecode
-│   ├── .mypy_cache
-│   ├── .pytest_cache
-│   ├── .ruff_cache
-│   ├── src/example/__pycache__
-│   └── tests/__pycache__
-└── cache-managed
-    └── .pixi
+clain classify --here  →  one-workspace classification
 
-Next: clain plan recreate --here --dry  →  pixi install
+  Workspace:       example-workspace
+  Location:        ~/dev/example-workspace
+  Sync placement:  ✓ local  (no synced-storage pattern detected)
+  Manifests:       pixi.toml, pyproject.toml
+
+  Regenerable subtrees (6):
+
+    cache-managed (1)   Lives in a per-ecosystem store. Safe to delete if
+    you can re-install — your manifest tells clain how.
+      .pixi
+
+    bytecode (5)   Regenerated automatically on the next run.
+      .mypy_cache
+      .pytest_cache
+      .ruff_cache
+      src/example/__pycache__
+      tests/__pycache__
+
+  Next step:
+    clain plan recreate --here --dry
+    → would run: pixi install  (derived from pixi.toml)
 ```
 
-`clain` recognised the manifests at the project root, identified the regenerable subtrees, and pointed you at the recreate command derived from `pixi.toml`. The scan stops at `.pixi/` — it doesn't recurse through every nested `__pycache__` in the bundled CPython.
+`clain` recognised the manifests at the project root, identified the regenerable subtrees with a one-line explanation of each class, autodetected that the workspace is not in any synced-storage tree, and pointed you at the recreate command derived from `pixi.toml`. The scan stops at `.pixi/` — it doesn't recurse through every nested `__pycache__` in the bundled CPython.
 
 See [INTENT.md](INTENT.md) for the project's mission. See [docs/USAGE.md](docs/USAGE.md) for the full walkthrough.
 
@@ -56,7 +66,7 @@ If your historical `dev/` directory has accumulated dozens of AI-spawned workspa
 
 ```sh
 export CLAIN_DEV_ROOT=~/some/dev/tree              # no personal-info default baked in
-export CLAIN_SYNCED_ROOT=~/path/to/your/synced/storage     # optional; enables in-sync detection
+# sync placement is autodetected on macOS against known synced-storage patterns
 pixi run clain classify
 pixi run clain plan recreate --dry
 pixi run clain plan move --dest ~/dev/ --dry
@@ -79,7 +89,7 @@ In tree mode `clain` enumerates each workspace under `CLAIN_DEV_ROOT` and classi
 └─────────────────┴──────────────┴────────────────┴─────────────────┴────────┘
 ```
 
-The `?` in the *In sync tree* column means `CLAIN_SYNCED_ROOT` isn't set — set it to your synced-storage path (GDrive / OneDrive / Dropbox / iCloud Drive) to enable in-sync detection.
+Sync placement is autodetected on macOS against known synced-storage path patterns (GDrive / OneDrive / Dropbox / Box / iCloud Drive). On non-macOS, the column shows `?`.
 
 ### I want my AI agent to drive this
 

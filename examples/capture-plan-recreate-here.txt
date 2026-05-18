@@ -1,25 +1,42 @@
-Plan: recreate (7 actions)
+clain plan recreate --here --dry  →  delete-and-recreate plan
 
-╭─ example-workspace  ~/dev/example-workspace ───────────────────────────────╮
-│                                                                            │
-│   Type       Class           Target             Command(s)         Safe?   │
-│  ────────────────────────────────────────────────────────────────────────  │
-│   delete     cache-managed   .pixi              rm -rf '.pixi'       ✓     │
-│   recreate   cache-managed   .                  pixi install         ✓     │
-│   delete     bytecode        .pytest_cache      rm -rf               ✓     │
-│                                                 '.pytest_cache'            │
-│   delete     bytecode        .ruff_cache        rm -rf               ✓     │
-│                                                 '.ruff_cache'              │
-│   delete     bytecode        .mypy_cache        rm -rf               ✓     │
-│                                                 '.mypy_cache'              │
-│   delete     bytecode        tests/__pycache_   rm -rf               ✓     │
-│                              _                  'tests/__pycache           │
-│                                                 __'                        │
-│   delete     bytecode        src/example/__py   rm -rf               ✓     │
-│                              cache__            'src/example/__p           │
-│                                                 ycache__'                  │
-│                                                                            │
-╰────────────────────────────────────────────────────────────────────────────╯
+  ╭─ example-workspace  ~/dev/example-workspace ───────────────────────────╮  
+  │                                                                        │  
+  │                                                                        │  
+  │    Type       Class           Target          Command(s)      Safe?    │  
+  │   ──────────────────────────────────────────────────────────────────   │  
+  │    delete     cache-managed   .pixi           rm -rf            ✓      │  
+  │                                               '.pixi'                  │  
+  │    recreate   cache-managed   .               pixi install      ✓      │  
+  │    delete     bytecode        .pytest_cache   rm -rf            ✓      │  
+  │                                               '.pytest_cach            │  
+  │                                               e'                       │  
+  │    delete     bytecode        .ruff_cache     rm -rf            ✓      │  
+  │                                               '.ruff_cache'            │  
+  │    delete     bytecode        .mypy_cache     rm -rf            ✓      │  
+  │                                               '.mypy_cache'            │  
+  │    delete     bytecode        tests/__pycac   rm -rf            ✓      │  
+  │                               he__            'tests/__pyca            │  
+  │                                               che__'                   │  
+  │    delete     bytecode        src/example/_   rm -rf            ✓      │  
+  │                               _pycache__      'src/example/            │  
+  │                                               __pycache__'             │  
+  │                                                                        │  
+  │                                                                        │  
+  ╰────────────────────────────────────────────────────────────────────────╯  
 
-Workspaces: 1  Actions: 7  Unsafe: 0  saved to 
-$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json
+  Key                                                                         
+    Type     delete · recreate · move · smoke-test                            
+    Class    cache-managed   regenerable from a manifest (your real win)      
+             bytecode        regenerated automatically on use                 
+             ephemeral       build output, regenerable by the build step      
+    Target   path being acted on, relative to the workspace location          
+    Command  the actual shell command this action represents                  
+    Safe?    ✓ — clain has all it needs to run this reproducibly              
+             ✗ — something blocks safe execution; run `clain plan explain     
+             <ACTION_ID>` for the reason                                      
+
+  ──────────────────────────────────────────────────────────────────────────  
+  Summary  1 workspace  ·  7 actions  ·  0 unsafe                             
+  Saved    $XDG_STATE_HOME/clain/plans/recreate-<UTC>.json                    
+  Mode     dry-run (execution gate is closed — see executor.py)               

@@ -32,7 +32,7 @@ def classified(tmp_path: Path) -> dict[str, Any]:
     make_uv_workspace(root, "with-uv")
     make_ambiguous_python_workspace(root, "ambiguous-py")
     make_ephemeral_workspace(root, "build-only")
-    return cls.run_classify(root, root)
+    return cls.run_classify(root)
 
 
 def _actions_by_workspace(plan: dict[str, Any], name: str) -> list[dict[str, Any]]:
@@ -87,7 +87,12 @@ def test_recreate_plan_ephemeral_has_delete_only(classified: dict[str, Any]) -> 
     assert not any(a["type"] == "recreate" for a in actions)
 
 
-def test_move_plan_only_in_sync_workspaces(tmp_path: Path) -> None:
+def test_move_plan_only_in_sync_workspaces(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Spec 0013: in_sync_tree is set by autodetect, monkeypatched here.
+
+    Sites under tmp_path are never under a real synced-storage prefix, so we
+    flip the detector by path to simulate the synced vs local case.
+    """
     synced = tmp_path / "synced"
     synced.mkdir()
     local = tmp_path / "local"
@@ -95,8 +100,13 @@ def test_move_plan_only_in_sync_workspaces(tmp_path: Path) -> None:
     make_node_workspace(synced, "inside", lockfile="pnpm-lock.yaml")
     make_node_workspace(local, "outside", lockfile="pnpm-lock.yaml")
 
-    classified_synced = cls.run_classify(synced, synced)
-    classified_local = cls.run_classify(local, synced)
+    def fake_detect(path, **_kw):  # type: ignore[no-untyped-def]
+        return ("synced", "Google Drive", str(synced)) if str(path).startswith(str(synced)) else ("local", None, None)
+
+    monkeypatch.setattr("clain.classify.detect_synced_storage", fake_detect)
+
+    classified_synced = cls.run_classify(synced)
+    classified_local = cls.run_classify(local)
 
     plan_inside = planmod.build_move_plan(classified_synced, tmp_path / "dest")
     plan_outside = planmod.build_move_plan(classified_local, tmp_path / "dest")
@@ -105,11 +115,16 @@ def test_move_plan_only_in_sync_workspaces(tmp_path: Path) -> None:
     assert not plan_outside["actions"]
 
 
-def test_move_plan_flags_venv_in_preconditions(tmp_path: Path) -> None:
+def test_move_plan_flags_venv_in_preconditions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Move plan needs the workspace marked synced to include it; monkeypatch detect."""
     synced = tmp_path / "synced"
     synced.mkdir()
     make_uv_workspace(synced, "py-ws")
-    classified = cls.run_classify(synced, synced)
+    monkeypatch.setattr(
+        "clain.classify.detect_synced_storage",
+        lambda _p, **_kw: ("synced", "Google Drive", str(synced)),
+    )
+    classified = cls.run_classify(synced)
     plan = planmod.build_move_plan(classified, tmp_path / "dest")
     move_action = next(a for a in plan["actions"] if a["type"] == "move")
     assert any("venv" in pre.lower() and "pyvenv.cfg" in pre.lower() for pre in move_action["preconditions"])
