@@ -1,7 +1,7 @@
 ---
 id: 0011
 title: Documentation generalisation — synced storage broadly, single-workspace-first quickstart, captured Rich output
-status: accepted
+status: shipped
 goal: Goal 1 (Categorical visibility) and Goal 8 (Version-controlled, reviewable evolution) — extended to making the project's framing accurate to the real audience and the real CLI shape after specs 0009 and 0010
 ---
 
