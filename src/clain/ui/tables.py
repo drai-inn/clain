@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from typing import Any
 
 from rich.table import Table
+from rich.tree import Tree
 
 
 def classify_table(payload: dict[str, Any]) -> Table:
@@ -61,6 +62,84 @@ def classify_footer(payload: dict[str, Any]) -> str:
             "Drive path) to enable in-sync detection.[/dim]"
         )
     return footer
+
+
+def single_workspace_tree(workspace: dict[str, Any], payload: dict[str, Any]) -> Tree:
+    """Render a single workspace as a Rich Tree (spec 0010).
+
+    Used when `clain classify --here` produces a one-workspace payload. The
+    multi-row classify_table is wrong shape for this case.
+    """
+    name = workspace.get("name", "?")
+    path = workspace.get("path", "?")
+    tree = Tree(f"[bold cyan]{name}[/bold cyan]  [dim]({path})[/dim]")
+
+    manifests = workspace.get("manifests", [])
+    manifest_str = ", ".join(manifests) if manifests else "—"
+    tree.add(f"[bold]Manifests:[/bold] {manifest_str}")
+
+    in_sync = workspace.get("in_sync_tree")
+    sync_str = (
+        "[green]✓ in synced tree[/green]"
+        if in_sync is True
+        else "[yellow]· not in synced tree[/yellow]"
+        if in_sync is False
+        else "[dim]? unknown (CLAIN_SYNCED_ROOT not set)[/dim]"
+    )
+    tree.add(f"[bold]Sync placement:[/bold] {sync_str}")
+
+    # Group class tags by class name and add a sub-branch per class.
+    by_class: dict[str, list[str]] = defaultdict(list)
+    for tag in workspace.get("class_tags", []):
+        by_class[tag.get("class", "?")].append(tag.get("relative_path", "?"))
+
+    if by_class:
+        for cls_name in sorted(by_class.keys()):
+            style = {
+                "cache-managed": "yellow",
+                "ephemeral": "magenta",
+                "bytecode": "blue",
+            }.get(cls_name, "white")
+            branch = tree.add(f"[{style} bold]{cls_name}[/]")
+            for rel in sorted(by_class[cls_name]):
+                branch.add(f"[{style}]{rel}[/]")
+    else:
+        tree.add("[dim]No class tags (workspace-source only).[/dim]")
+
+    errors = workspace.get("errors", [])
+    if errors:
+        err_branch = tree.add(f"[red bold]Errors ({len(errors)})[/]")
+        for err in errors[:5]:
+            err_branch.add(f"[red]{err}[/]")
+
+    return tree
+
+
+def single_workspace_footer(workspace: dict[str, Any], payload: dict[str, Any]) -> str:
+    """One-line narrative under the tree: what the next command would do."""
+    scan = payload.get("scan", {})
+    duration = scan.get("duration_seconds", "?")
+    manifests = set(workspace.get("manifests", []))
+    # Quick deterministic hint for the common manifest cases. (Authoritative
+    # derivation lives in clain.plan; this is just a helpful pointer.)
+    next_step: str
+    if "pixi.toml" in manifests:
+        next_step = "clain plan recreate --here --dry  →  pixi install"
+    elif "uv.lock" in manifests:
+        next_step = "clain plan recreate --here --dry  →  uv sync"
+    elif "pnpm-lock.yaml" in manifests:
+        next_step = "clain plan recreate --here --dry  →  pnpm install --frozen-lockfile"
+    elif "package-lock.json" in manifests:
+        next_step = "clain plan recreate --here --dry  →  npm ci"
+    elif "yarn.lock" in manifests:
+        next_step = "clain plan recreate --here --dry  →  yarn install --frozen-lockfile"
+    elif "pyproject.toml" in manifests:
+        next_step = "clain plan recreate --here --dry  →  (ambiguous Python toolchain — pin one of pixi/uv/poetry)"
+    elif "package.json" in manifests:
+        next_step = "clain plan recreate --here --dry  →  (no lockfile — recreate would resolve fresh versions)"
+    else:
+        next_step = "clain plan recreate --here --dry  →  (no recognised manifest — investigate manually)"
+    return f"[bold]Next:[/bold] {next_step}  [dim]scan {duration}s[/dim]"
 
 
 def workspace_detail_table(workspace: dict[str, Any]) -> Table:

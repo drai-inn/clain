@@ -18,6 +18,8 @@ from clain.ui.tables import (
     classify_table,
     plan_footer,
     plan_table,
+    single_workspace_footer,
+    single_workspace_tree,
     unsafe_actions_table,
     workspace_detail_table,
 )
@@ -68,16 +70,38 @@ def _resolve_or_exit(root: Path | None) -> Path:
 def classify(
     root: Path | None = typer.Argument(
         None,
-        help="Root to classify. Falls back to $CLAIN_DEV_ROOT; errors if neither is set.",
+        help="Root to classify. In tree mode (default), falls back to $CLAIN_DEV_ROOT. "
+        "With --here, falls back to the current working directory.",
     ),
     json_out: bool = typer.Option(False, "--json", help="Emit JSON to stdout (schema v1)."),
-    workspace: str | None = typer.Option(None, "--workspace", help="Show the full tag list for one workspace."),
+    workspace: str | None = typer.Option(
+        None, "--workspace", help="Show the full tag list for one workspace (tree mode only)."
+    ),
+    here: bool = typer.Option(
+        False,
+        "--here",
+        help="Treat ROOT (or cwd) as a single workspace, not as a parent of workspaces. "
+        "Useful for tidying the project you're currently in.",
+    ),
     refresh: bool = typer.Option(False, "--refresh", help="Force a fresh scan."),
     no_cache: bool = typer.Option(False, "--no-cache", help="Skip cache for this run."),
 ) -> None:
-    """Categorical scan: tags cache-managed / ephemeral / bytecode subtrees per workspace."""
-    resolved = _resolve_or_exit(root)
+    """Categorical scan: tags cache-managed / ephemeral / bytecode subtrees per workspace.
+
+    Default mode treats ROOT as a parent of workspaces (depth-1 children).
+    Pass --here to treat ROOT (or cwd) as a single workspace itself.
+    """
+    if here and workspace is not None:
+        err_console.print(
+            "[red]--here and --workspace are mutually exclusive.[/red] "
+            "--workspace NAME drills into one child of ROOT in tree mode; "
+            "--here treats ROOT itself as the workspace."
+        )
+        raise typer.Exit(code=2)
+
+    resolved = (root or Path.cwd()).expanduser().resolve() if here else _resolve_or_exit(root)
     synced = resolve_synced_root()
+
     if not resolved.exists():
         err_console.print(f"[red]Root does not exist:[/red] {resolved}")
         raise typer.Exit(code=2)
@@ -86,7 +110,7 @@ def classify(
         raise typer.Exit(code=2)
 
     try:
-        payload, cache_hit = cls.get_or_run(resolved, synced, refresh=refresh, use_cache=not no_cache)
+        payload, cache_hit = cls.get_or_run(resolved, synced, refresh=refresh, use_cache=not no_cache, single=here)
     except (FileNotFoundError, NotADirectoryError) as exc:
         err_console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=2) from exc
@@ -94,6 +118,15 @@ def classify(
     if json_out:
         sys.stdout.write(json.dumps(payload, indent=2, sort_keys=True))
         sys.stdout.write("\n")
+        return
+
+    if here:
+        # Single-workspace render uses a Rich Tree, not the multi-row table.
+        ws_payload = payload["workspaces"][0]
+        console.print(single_workspace_tree(ws_payload, payload))
+        console.print(single_workspace_footer(ws_payload, payload))
+        if cache_hit:
+            console.print("[dim](cached — pass --refresh to rescan)[/dim]")
         return
 
     if workspace is not None:
@@ -163,6 +196,12 @@ def plan_recreate(
     root: Path | None = typer.Argument(None, help="Root previously classified."),
     json_out: bool = typer.Option(False, "--json", help="Emit plan JSON to stdout."),
     dry: bool = typer.Option(False, "--dry", help="Preview only — render the plan and stop before any execution."),
+    here: bool = typer.Option(
+        False,
+        "--here",
+        help="Single-workspace mode: ROOT (or cwd) IS the workspace, not a parent of workspaces. "
+        "Requires a prior `clain classify --here` against the same path.",
+    ),
 ) -> None:
     """Delete + recreate plan for cache-managed/ephemeral/bytecode subtrees.
 
@@ -171,7 +210,7 @@ def plan_recreate(
     (src/clain/executor.py:EXECUTE_ENABLED) and will error until a future
     spec lifts the gate.
     """
-    resolved = _resolve_or_exit(root)
+    resolved = (root or Path.cwd()).expanduser().resolve() if here else _resolve_or_exit(root)
     classify_payload = _load_classify_or_exit(resolved)
     plan = planmod.build_recreate_plan(classify_payload)
     _emit_plan(plan, json_out, dry)
@@ -187,6 +226,12 @@ def plan_move(
     ),
     json_out: bool = typer.Option(False, "--json", help="Emit plan JSON to stdout."),
     dry: bool = typer.Option(False, "--dry", help="Preview only — render the plan and stop before any execution."),
+    here: bool = typer.Option(
+        False,
+        "--here",
+        help="Single-workspace mode: ROOT (or cwd) IS the workspace. The plan will move this one workspace, "
+        "if it's in the synced tree, to <DEST>/<workspace-name>/.",
+    ),
 ) -> None:
     """Move + triage plan for workspaces sitting in the synced tree.
 
@@ -198,7 +243,7 @@ def plan_move(
     if dest is None:
         err_console.print("[red]--dest is required for plan move (e.g. --dest ~/dev/).[/red]")
         raise typer.Exit(code=2)
-    resolved = _resolve_or_exit(root)
+    resolved = (root or Path.cwd()).expanduser().resolve() if here else _resolve_or_exit(root)
     classify_payload = _load_classify_or_exit(resolved)
     plan = planmod.build_move_plan(classify_payload, dest.expanduser().resolve())
     _emit_plan(plan, json_out, dry)

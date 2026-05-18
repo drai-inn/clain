@@ -131,7 +131,19 @@ def classify_workspace(workspace: Path, synced_root: Path | None, rules: Rules) 
     return result
 
 
-def run_classify(root: Path, synced_root: Path | None, rules: Rules | None = None) -> dict[str, Any]:
+def run_classify(
+    root: Path,
+    synced_root: Path | None,
+    rules: Rules | None = None,
+    *,
+    single: bool = False,
+) -> dict[str, Any]:
+    """Classify a tree of workspaces or, with `single=True`, a single workspace.
+
+    Per spec 0010, `single=True` treats ROOT itself as one workspace rather than
+    enumerating depth-1 children. The JSON shape is unchanged (`workspaces` is a
+    list with exactly one entry in single mode); only `scan.mode` differs.
+    """
     if not root.exists():
         raise FileNotFoundError(f"Root does not exist: {root}")
     if not root.is_dir():
@@ -140,10 +152,13 @@ def run_classify(root: Path, synced_root: Path | None, rules: Rules | None = Non
     rules = rules or load_rules()
 
     started = time.time()
-    workspaces = [
-        classify_workspace(ws, synced_root, rules)
-        for ws in sorted(_iter_workspaces(root), key=lambda p: p.name.lower())
-    ]
+    if single:
+        workspaces = [classify_workspace(root, synced_root, rules)]
+    else:
+        workspaces = [
+            classify_workspace(ws, synced_root, rules)
+            for ws in sorted(_iter_workspaces(root), key=lambda p: p.name.lower())
+        ]
     ended = time.time()
 
     total_tags = sum(len(w.class_tags) for w in workspaces)
@@ -152,6 +167,7 @@ def run_classify(root: Path, synced_root: Path | None, rules: Rules | None = Non
         "scan": {
             "root": str(root),
             "synced_root": str(synced_root) if synced_root is not None else None,
+            "mode": "single" if single else "tree",
             "started_at": datetime.fromtimestamp(started, tz=UTC).isoformat(timespec="seconds"),
             "ended_at": datetime.fromtimestamp(ended, tz=UTC).isoformat(timespec="seconds"),
             "duration_seconds": round(ended - started, 3),
@@ -203,13 +219,18 @@ def get_or_run(
     refresh: bool = False,
     use_cache: bool = True,
     rules: Rules | None = None,
+    single: bool = False,
 ) -> tuple[dict[str, Any], bool]:
     """Return (payload, cache_hit)."""
     if use_cache and not refresh:
         cached = load_cached(root)
         if cached is not None and cache_is_fresh(cached):
-            return cached, True
-    payload = run_classify(root, synced_root, rules)
+            # Use cached only if the mode matches; absent mode = "tree" per spec 0010.
+            cached_mode = cached.get("scan", {}).get("mode", "tree")
+            wanted_mode = "single" if single else "tree"
+            if cached_mode == wanted_mode:
+                return cached, True
+    payload = run_classify(root, synced_root, rules, single=single)
     if use_cache:
         save_cache(root, payload)
     log_run(root, payload)
