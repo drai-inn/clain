@@ -1,0 +1,13 @@
+                                     Plan: recreate (3 actions)                                     
+┏━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Workspace ┃ Type     ┃ Class         ┃ Target                  ┃ Command(s)              ┃ Safe? ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ alpha     │ delete   │ cache-managed │ /fixture/dev/alpha/node │ rm -rf                  │   ✓   │
+│           │          │               │ _modules                │ '/fixture/dev/alpha/nod │       │
+│           │          │               │                         │ e_modules'              │       │
+│ alpha     │ recreate │ cache-managed │ /fixture/dev/alpha      │ pnpm install            │   ✓   │
+│           │          │               │                         │ --frozen-lockfile       │       │
+│ beta      │ delete   │ cache-managed │ /fixture/dev/beta/.venv │ rm -rf                  │   ✗   │
+│           │          │               │                         │ '/fixture/dev/beta/.ven │       │
+│           │          │               │                         │ v'                      │       │
+└───────────┴──────────┴───────────────┴─────────────────────────┴─────────────────────────┴───────┘

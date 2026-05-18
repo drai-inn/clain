@@ -1,41 +1,25 @@
-                          Plan: recreate (7 actions)                          
-┏━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┓
-┃ Workspace   ┃ Type     ┃ Class        ┃ Target      ┃ Command(s)   ┃ Safe? ┃
-┡━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━┩
-│ example-wo… │ delete   │ cache-manag… │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.pixi     │ le-workspace │       │
-│             │          │              │             │ /.pixi'      │       │
-│ example-wo… │ recreate │ cache-manag… │ ~/dev/examp │ pixi install │   ✓   │
-│             │          │              │ le-workspac │              │       │
-│             │          │              │ e           │              │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.pytest_c │ le-workspace │       │
-│             │          │              │ ache        │ /.pytest_cac │       │
-│             │          │              │             │ he'          │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.ruff_cac │ le-workspace │       │
-│             │          │              │ he          │ /.ruff_cache │       │
-│             │          │              │             │ '            │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.mypy_cac │ le-workspace │       │
-│             │          │              │ he          │ /.mypy_cache │       │
-│             │          │              │             │ '            │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/tests/__p │ le-workspace │       │
-│             │          │              │ ycache__    │ /tests/__pyc │       │
-│             │          │              │             │ ache__'      │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/src/examp │ le-workspace │       │
-│             │          │              │ le/__pycach │ /src/example │       │
-│             │          │              │ e__         │ /__pycache__ │       │
-│             │          │              │             │ '            │       │
-└─────────────┴──────────┴──────────────┴─────────────┴──────────────┴───────┘
+Plan: recreate (7 actions)
+
+╭─ example-workspace  ~/dev/example-workspace ───────────────────────────────╮
+│                                                                            │
+│   Type       Class           Target             Command(s)         Safe?   │
+│  ────────────────────────────────────────────────────────────────────────  │
+│   delete     cache-managed   .pixi              rm -rf '.pixi'       ✓     │
+│   recreate   cache-managed   .                  pixi install         ✓     │
+│   delete     bytecode        .pytest_cache      rm -rf               ✓     │
+│                                                 '.pytest_cache'            │
+│   delete     bytecode        .ruff_cache        rm -rf               ✓     │
+│                                                 '.ruff_cache'              │
+│   delete     bytecode        .mypy_cache        rm -rf               ✓     │
+│                                                 '.mypy_cache'              │
+│   delete     bytecode        tests/__pycache_   rm -rf               ✓     │
+│                              _                  'tests/__pycache           │
+│                                                 __'                        │
+│   delete     bytecode        src/example/__py   rm -rf               ✓     │
+│                              cache__            'src/example/__p           │
+│                                                 ycache__'                  │
+│                                                                            │
+╰────────────────────────────────────────────────────────────────────────────╯
 
 Workspaces: 1  Actions: 7  Unsafe: 0  saved to 
 $XDG_STATE_HOME/clain/plans/recreate-<UTC>.json

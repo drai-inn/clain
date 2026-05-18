@@ -26,12 +26,20 @@ clain plan recreate --here "$WORKSPACE_PATH" --dry --json
 clain plan recreate "$ROOT" --dry --json
 ```
 
-4. Surface the plan to the developer with these emphases:
+For copy-paste into a spreadsheet, use `--table` (mutually exclusive with `--json`):
+
+```bash
+clain plan recreate --here "$WORKSPACE_PATH" --dry --table
+```
+
+The default render groups actions by workspace into Rich panels with the workspace path shown once in the panel title (targets and commands relative to that path); the `--table` render is a single flat table with absolute paths.
+
+5. Surface the plan to the developer with these emphases:
    - The total action count and the **unsafe count** (look for `Unsafe:` in the footer or `summary.unsafe_count` in JSON).
    - Any actions flagged with `safe_to_execute: false` — list them, with their `unsafe_reason`, before any safe actions.
    - The plan path under `$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json`. The plan is the audit artefact; tell the developer where it lives.
 
-5. If the developer asks "can you just run it for me?", explain that execution is blocked by the project's development-phase gate. The plan is the deliverable; the developer reviews it and runs the commands themselves until the gate is lifted by a future spec.
+6. If the developer asks "can you just run it for me?", explain that execution is blocked by the project's development-phase gate. The plan is the deliverable; the developer reviews it and runs the commands themselves until the gate is lifted by a future spec.
 
 ## Notes
 

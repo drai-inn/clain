@@ -66,30 +66,40 @@ pixi run clain plan recreate --here --dry
 ```
 
 ```text
-                          Plan: recreate (7 actions)                          
-┏━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┓
-┃ Workspace   ┃ Type     ┃ Class        ┃ Target      ┃ Command(s)   ┃ Safe? ┃
-┡━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━┩
-│ example-wo… │ delete   │ cache-manag… │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.pixi     │ le-workspace │       │
-│             │          │              │             │ /.pixi'      │       │
-│ example-wo… │ recreate │ cache-manag… │ ~/dev/examp │ pixi install │   ✓   │
-│             │          │              │ le-workspac │              │       │
-│             │          │              │ e           │              │       │
-│ example-wo… │ delete   │ bytecode     │ ~/dev/examp │ rm -rf       │   ✓   │
-│             │          │              │ le-workspac │ '~/dev/examp │       │
-│             │          │              │ e/.pytest_c │ le-workspace │       │
-│             │          │              │ ache        │ /.pytest_cac │       │
-│             │          │              │             │ he'          │       │
-│ (… more bytecode rows for .ruff_cache, .mypy_cache, two __pycache__ dirs …)│
-└─────────────┴──────────┴──────────────┴─────────────┴──────────────┴───────┘
+Plan: recreate (7 actions)
+
+╭─ example-workspace  ~/dev/example-workspace ───────────────────────────────╮
+│                                                                            │
+│   Type       Class           Target             Command(s)         Safe?   │
+│  ────────────────────────────────────────────────────────────────────────  │
+│   delete     cache-managed   .pixi              rm -rf '.pixi'       ✓     │
+│   recreate   cache-managed   .                  pixi install         ✓     │
+│   delete     bytecode        .pytest_cache      rm -rf               ✓     │
+│                                                 '.pytest_cache'            │
+│   delete     bytecode        .ruff_cache        rm -rf               ✓     │
+│                                                 '.ruff_cache'              │
+│   delete     bytecode        .mypy_cache        rm -rf               ✓     │
+│                                                 '.mypy_cache'              │
+│   delete     bytecode        tests/__pycache_   rm -rf               ✓     │
+│                              _                  'tests/__pycache__'        │
+│   delete     bytecode        src/example/__py   rm -rf               ✓     │
+│                              cache__            'src/example/__pyc…'       │
+│                                                                            │
+╰────────────────────────────────────────────────────────────────────────────╯
 
 Workspaces: 1  Actions: 7  Unsafe: 0  saved to 
 $XDG_STATE_HOME/clain/plans/recreate-<UTC>.json
 ```
 
-Read this top-down. The plan is **7 actions, 0 unsafe**, with `pixi install` as the single recreate step. The path you see on every row is the action target (this exemplifies a current presentation issue tracked by spec 0012 — the absolute path repeats; a near-future change will tree-group by workspace and show paths relative to a workspace `Location`).
+Read this top-down. The plan is **7 actions, 0 unsafe**, with `pixi install` as the single recreate step. The workspace name and its absolute location live in the panel title (once); inside the panel, `Target` and `Command(s)` are **relative to that location**, so paths like `.pixi` and `tests/__pycache__` don't repeat the workspace prefix on every row.
+
+If you'd rather have a single flat table with absolute paths (useful for copy-pasting into a spreadsheet), pass `--table`:
+
+```sh
+pixi run clain plan recreate --here --dry --table
+```
+
+`--table` and `--json` are mutually exclusive (both write the plan to stdout in a single format).
 
 A full plan JSON also lands in `$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json` — that's your audit artefact.
 
