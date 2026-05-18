@@ -36,15 +36,17 @@ def resolve_dev_root(explicit: Path | None) -> Path:
     raise DevRootNotConfigured(f"No dev root configured. Pass a positional argument or set ${ENV_DEV_ROOT}.")
 
 
-def resolve_synced_root(dev_root: Path) -> Path:
+def resolve_synced_root() -> Path | None:
     """Resolve the synced-tree marker used by classify's in_sync_tree test.
 
-    Defaults to the dev root when CLAIN_SYNCED_ROOT is unset.
+    Returns None when CLAIN_SYNCED_ROOT is unset, signalling "unknown" rather
+    than defaulting to the dev root. Spec 0009 changed this: defaulting to the
+    dev root made `in_sync_tree` always-true and therefore meaningless.
     """
     env = os.environ.get(ENV_SYNCED_ROOT)
     if env:
         return Path(env).expanduser().resolve()
-    return dev_root
+    return None
 
 
 def xdg_state_home() -> Path:
