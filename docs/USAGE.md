@@ -5,16 +5,31 @@ A walkthrough for the standard CLI user. For the agent perspective, see [../AGEN
 ## Prerequisites
 
 - macOS or Linux. The synced-storage concern is more acute on macOS (Google Drive / iCloud Drive / OneDrive / Dropbox all surface as `~/Library/CloudStorage/...` or similar) but the tool is portable.
-- [Pixi](https://pixi.sh/) — install with `brew install pixi` or per the Pixi docs.
-- Python 3.12+ (Pixi will install this for you).
+- Either [pipx](https://pipx.pypa.io/) or [Pixi](https://pixi.sh/) — both manage isolated Python tool installs.
+- Python 3.12+ (pipx / pixi will install or pick this up for you).
 
 ## First-time setup
+
+Install `clain` as a global binary on `PATH`. Either of:
+
+```sh
+pipx install git+https://github.com/drai-inn/clain.git
+# or, if you already use pixi for everything:
+pixi global install --git https://github.com/drai-inn/clain.git clain
+```
+
+Verify with `clain --version`.
+
+<!-- contributor-only -->
+If you're hacking on `clain` itself, clone the repo and use the Pixi dev environment from inside the checkout instead — every `clain …` invocation below becomes `pixi run clain …`:
 
 ```sh
 git clone https://github.com/drai-inn/clain.git
 cd clain
 pixi install
+pixi run clain --version
 ```
+<!-- /contributor-only -->
 
 There are two ways to use `clain`, depending on what you're trying to do:
 
@@ -31,7 +46,7 @@ Run `clain` inside the project you want to inspect. No env vars needed — `--he
 
 ```sh
 cd ~/some/project
-pixi run clain classify --here
+clain classify --here
 ```
 
 `clain` looks at the project root, identifies which manifests are present (`pyproject.toml`, `pixi.toml`, `package.json`, `pnpm-lock.yaml`, `uv.lock`, …), walks the project tree stopping at every class boundary (`node_modules/`, `.venv/`, `.pixi/`, `dist/`, `__pycache__/`, etc.), and produces this:
@@ -87,7 +102,7 @@ A note on typography (spec 0014): the horizontal rule is a fixed-measure line th
 Then ask for the plan:
 
 ```sh
-pixi run clain plan recreate --here --dry
+clain plan recreate --here --dry
 ```
 
 ```text
@@ -127,7 +142,7 @@ Read this top-down. The plan is **7 actions, 0 unsafe**, with `pixi install` as 
 If you'd rather have a single flat table with absolute paths (useful for copy-pasting into a spreadsheet), pass `--table`:
 
 ```sh
-pixi run clain plan recreate --here --dry --table
+clain plan recreate --here --dry --table
 ```
 
 `--table` and `--json` are mutually exclusive (both write the plan to stdout in a single format).
@@ -137,7 +152,7 @@ A full plan JSON also lands in `$XDG_STATE_HOME/clain/plans/recreate-<UTC>.json`
 Use `--json` to pipe machine-readable output:
 
 ```sh
-pixi run clain plan recreate --here --dry --json > my-plan.json
+clain plan recreate --here --dry --json > my-plan.json
 ```
 
 ## Tree mode
@@ -146,7 +161,7 @@ For "I have a whole `dev/` directory full of stuff":
 
 ```sh
 export CLAIN_DEV_ROOT=~/some/dev/tree
-pixi run clain classify
+clain classify
 ```
 
 In tree mode `clain` enumerates each workspace at depth-1 under `CLAIN_DEV_ROOT`:
@@ -199,7 +214,7 @@ For the PR-side workflow of contributing such a change back, see [../CONTRIBUTIN
 ### "I'm in a project and just want to know what's regenerable"
 
 ```sh
-cd ~/some/project && pixi run clain classify --here
+cd ~/some/project && clain classify --here
 ```
 
 Done. The output tells you what's a regenerable cache and what's source. The `Next:` line tells you the recreate command.

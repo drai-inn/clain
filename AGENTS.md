@@ -14,7 +14,7 @@ This project follows the [Agent Skills](https://agentskills.io) format. Skills l
 
 What the developer expects you to do:
 
-1. Install dependencies: `pixi install`. Requires [Pixi](https://pixi.sh/) and Python 3.12+.
+1. **Assume the `clain` binary is on `PATH`.** End users install it once with `pipx install git+https://github.com/drai-inn/clain.git` (or `pixi global install --git https://github.com/drai-inn/clain.git clain`). If `clain --version` fails, surface the install hint rather than guessing at a checkout path.
 2. **Pick the mode.** For the everyday "one project I'm currently in" case, use **single-workspace mode** by passing `--here`. For the historical "I have a tree of workspaces accumulated under a synced drive" case, use the default tree mode. Single-workspace mode is the recommended entry point.
 3. **Single-workspace mode:** `clain classify --here [PATH]` (defaults to cwd). Then `clain plan recreate --here [PATH] --dry`.
 4. **Tree mode:** the developer sets `CLAIN_DEV_ROOT` (or passes a path positionally). **There is no baked-in default** — you must not invent one. Sync placement is autodetected on macOS against known synced-storage path patterns; off-macOS it's reported as unknown.

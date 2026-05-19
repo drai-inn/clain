@@ -1,7 +1,7 @@
 ---
 id: 0015
 title: Global installability + error-message sweep
-status: draft
+status: accepted
 goal: Goal 2 (Deliberate execution — every error should tell the user what happened and what to do next); Goal 8 (Reviewable evolution — the documented "tree of workspaces" entry point should actually work the way the docs claim)
 ---
 
@@ -149,8 +149,7 @@ Every `err_console.print` call site in `cli.py` migrates to call `user_error(...
 
 ## Acceptance
 
-- [ ] `pipx install git+https://github.com/drai-inn/clain.git` produces a working `clain` on PATH; `clain --version` matches `pyproject.toml`.
-- [ ] `pixi global install --git https://github.com/drai-inn/clain.git clain` ditto. (Smoke-test by hand; this is install-pathway, not a unit-testable assertion.)
+- [ ] Install-path verification (`pipx install git+…` and `pixi global install --git …` produce a working `clain` matching `pyproject.toml`) — **deferred to spec 0018** (release-tag CI smoke workflow). Manual smoke would rot; the right enforcement is a CI job on `v*` tag push.
 - [ ] README.md "Three ways in" leads with the bare `clain` invocation; `pixi run clain …` appears only in the contributor section.
 - [ ] docs/USAGE.md tree-mode walkthrough no longer tells the user to `cd` into a non-pixi-managed directory and run `pixi run clain`.
 - [ ] `test_no_pixi_run_in_user_facing_docs` passes.
