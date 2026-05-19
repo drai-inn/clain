@@ -26,6 +26,8 @@ from clain.ui.tables import (
     plan_view,
     workspace_detail_table,
 )
+from clain.ui.theme import ENV_VAR as THEME_ENV_VAR
+from clain.ui.theme import InvalidThemeValue, resolve_theme, set_theme
 
 app = typer.Typer(
     name="clain",
@@ -73,6 +75,39 @@ def _check_deprecated_env() -> None:
         raise typer.Exit(code=2)
 
 
+def _apply_theme(theme: str | None) -> None:
+    """Resolve and stash the active theme. Called once per invocation.
+
+    Precedence (spec 0017 § Resolution):
+        NO_COLOR set → no colour
+        --theme dark|light|auto (flag)
+        CLAIN_THEME env var
+        COLORFGBG / OSC 11 detection
+        fallback: dark
+    """
+    import os
+
+    no_color = "NO_COLOR" in os.environ
+    try:
+        resolved = resolve_theme(
+            flag=theme,
+            env=os.environ.get(THEME_ENV_VAR),
+            colorfgbg=os.environ.get("COLORFGBG"),
+            no_color=no_color,
+            osc11=True,
+        )
+    except InvalidThemeValue as exc:
+        err_console.print(
+            user_error(
+                what=str(exc),
+                why="`--theme` and `CLAIN_THEME` accept `dark`, `light`, or `auto` only.",
+                fix="export CLAIN_THEME=auto    # or pass --theme dark|light|auto explicitly",
+            )
+        )
+        raise typer.Exit(code=2) from exc
+    set_theme(resolved)
+
+
 @app.callback()
 def main(
     version: bool = typer.Option(
@@ -82,9 +117,16 @@ def main(
         is_eager=True,
         help="Show version and exit.",
     ),
+    theme: str | None = typer.Option(
+        None,
+        "--theme",
+        help="Colour theme: dark, light, or auto (default: auto — detects terminal background, falls back to dark). "
+        "Also reads CLAIN_THEME; NO_COLOR strips colour entirely.",
+    ),
 ) -> None:
     """clain — manage local AI-dev workspaces."""
     _check_deprecated_env()
+    _apply_theme(theme)
 
 
 def _resolve_or_exit(root: Path | None) -> Path:

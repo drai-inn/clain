@@ -201,6 +201,27 @@ What `safe_to_execute: false` means (look for it in `--json` output or the red "
 - `package.json without a lockfile — recreate would resolve fresh versions` — non-reproducible. Commit a lockfile first.
 - `no recognised manifest — investigate manually` — workspace has cache-managed subtrees but no manifest `clain` understands.
 
+## Theme
+
+`clain` ships a Tokyo Night palette in two variants — **dark** (default) and **light**. The renderer never names a colour directly; every reference goes through a named token in [`src/clain/ui/theme.py`](../src/clain/ui/theme.py) (`brand`, `safe`, `unsafe`, `warning`, `fix`, `dim`, `accent`, plus per-class colours), so the dark↔light swap is a single resolution call.
+
+Selection precedence (highest first):
+
+1. `NO_COLOR` env var set — colour stripped entirely (Rich's standard behaviour, codified).
+2. `--theme dark|light|auto` — explicit flag on the `clain` invocation.
+3. `CLAIN_THEME=dark|light|auto` — same vocabulary as the flag.
+4. Auto-detection from `COLORFGBG` (`fg;bg`, sometimes `fg;ig;bg`).
+5. Best-effort OSC 11 query of the terminal background (50 ms timeout; skipped when stdout/stdin aren't TTYs).
+6. Fallback: **dark**.
+
+Unknown values for `--theme` or `CLAIN_THEME` are CLI errors naming the valid vocabulary (`dark`, `light`, `auto`).
+
+```sh
+clain --theme light classify --here
+CLAIN_THEME=dark clain plan recreate --here --dry
+NO_COLOR=1 clain classify --here    # plain text, no ANSI
+```
+
 ## Customising the rule base
 
 Class membership, manifest→recreate command mappings, and ecosystem placement advice live in [`src/clain/rules.toml`](../src/clain/rules.toml). It's a hand-editable (or genAI-editable) TOML file with a schema-version field.

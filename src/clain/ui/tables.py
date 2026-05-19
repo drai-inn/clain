@@ -1,4 +1,9 @@
-"""Rich table builders. Pure rendering — no business logic."""
+"""Rich table builders. Pure rendering — no business logic.
+
+Spec 0017: every colour reference goes through a `Theme` token (see
+`clain.ui.theme`). No raw Rich colour names (`[red]`, `[green]`, …) appear
+in this module — `test_no_raw_color_names_in_renderers` pins the rule.
+"""
 
 from __future__ import annotations
 
@@ -13,20 +18,32 @@ from rich.table import Table
 from rich.text import Text
 
 from clain.ui.rhythm import BODY_INDENT, META_INDENT, RULE_WIDTH
+from clain.ui.theme import Theme, get_theme
+
+
+def _class_token(theme: Theme, cls_name: str) -> str:
+    """Resolve a class-tag name to the corresponding theme token."""
+    mapping = {
+        "cache-managed": theme.class_cache_managed,
+        "bytecode": theme.class_bytecode,
+        "ephemeral": theme.class_ephemeral,
+    }
+    return mapping.get(cls_name, theme.class_unknown)
 
 
 def classify_table(payload: dict[str, Any]) -> Table:
+    theme = get_theme()
     workspaces = payload.get("workspaces", [])
     table = Table(
         title="Workspace classification",
-        title_style="bold cyan",
+        title_style=f"bold {theme.brand}",
         header_style="bold",
     )
-    table.add_column("Workspace", style="cyan")
+    table.add_column("Workspace", style=theme.accent)
     table.add_column("In sync tree", justify="center")
-    table.add_column("Class tags", style="yellow")
-    table.add_column("Manifests", style="magenta", overflow="fold")
-    table.add_column("Errors", style="red")
+    table.add_column("Class tags", style=theme.class_cache_managed)
+    table.add_column("Manifests", style=theme.accent, overflow="fold")
+    table.add_column("Errors", style=theme.unsafe)
 
     for ws in workspaces:
         counts = Counter(t.get("class") for t in ws.get("class_tags", []))
@@ -46,13 +63,14 @@ def classify_table(payload: dict[str, Any]) -> Table:
 
 
 def workspace_detail_table(workspace: dict[str, Any]) -> Table:
+    theme = get_theme()
     table = Table(
         title=f"Workspace: {workspace.get('name', '?')}",
-        title_style="bold cyan",
+        title_style=f"bold {theme.brand}",
         header_style="bold",
     )
-    table.add_column("Class", style="yellow")
-    table.add_column("Relative path", style="cyan")
+    table.add_column("Class", style=theme.class_cache_managed)
+    table.add_column("Relative path", style=theme.accent)
     for tag in workspace.get("class_tags", []):
         table.add_row(tag.get("class", "?"), tag.get("relative_path", "?"))
     return table
@@ -65,22 +83,23 @@ def plan_table_flat(plan: dict[str, Any]) -> Table:
     rely on it (e.g. copy-pasting to a spreadsheet). The default render is
     `plan_panels` (workspace-grouped, relative paths) per spec 0012.
     """
+    theme = get_theme()
     actions = plan.get("actions", [])
     kind = plan.get("kind", "plan")
     table = Table(
         title=f"Plan: {kind} ({len(actions)} actions)",
-        title_style="bold cyan",
+        title_style=f"bold {theme.brand}",
         header_style="bold",
     )
-    table.add_column("Workspace", style="cyan")
-    table.add_column("Type", style="green")
-    table.add_column("Class", style="yellow")
+    table.add_column("Workspace", style=theme.accent)
+    table.add_column("Type", style=theme.safe)
+    table.add_column("Class", style=theme.class_cache_managed)
     table.add_column("Target", overflow="fold")
     table.add_column("Command(s)", overflow="fold")
     table.add_column("Safe?", justify="center")
 
     for a in actions:
-        safe_mark = "✓" if a.get("safe_to_execute") else "[red]✗[/red]"
+        safe_mark = "✓" if a.get("safe_to_execute") else f"[{theme.unsafe}]✗[/]"
         cmds = "\n".join(a.get("commands", []) or ["—"])
         table.add_row(
             a.get("workspace", "?"),
@@ -147,6 +166,7 @@ def plan_panels(plan: dict[str, Any]) -> list[Panel]:
     the caller prints them in order. The JSON shape behind the plan is not
     touched — relativisation is render-only.
     """
+    theme = get_theme()
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     workspace_paths: dict[str, str] = {}
     for a in plan.get("actions", []):
@@ -168,14 +188,14 @@ def plan_panels(plan: dict[str, Any]) -> list[Panel]:
             padding=(0, 1),
             expand=True,
         )
-        table.add_column("Type", style="green", no_wrap=True)
-        table.add_column("Class", style="yellow", no_wrap=True)
-        table.add_column("Target", style="cyan", overflow="fold")
+        table.add_column("Type", style=theme.safe, no_wrap=True)
+        table.add_column("Class", style=theme.class_cache_managed, no_wrap=True)
+        table.add_column("Target", style=theme.accent, overflow="fold")
         table.add_column("Command(s)", overflow="fold")
         table.add_column("Safe?", justify="center", no_wrap=True)
 
         for a in actions:
-            safe_mark = "✓" if a.get("safe_to_execute") else "[red]✗[/red]"
+            safe_mark = "✓" if a.get("safe_to_execute") else f"[{theme.unsafe}]✗[/]"
             target = _relativise_target(a.get("target", "?"), location)
             cmds = [_relativise_command(c, location) for c in a.get("commands", [])]
             table.add_row(
@@ -188,9 +208,9 @@ def plan_panels(plan: dict[str, Any]) -> list[Panel]:
 
         panel = Panel(
             table,
-            title=f"[bold cyan]{ws_name}[/]  [dim]{location}[/dim]",
+            title=f"[bold {theme.brand}]{ws_name}[/]  [dim]{location}[/dim]",
             title_align="left",
-            border_style="cyan",
+            border_style=theme.brand,
             padding=(0, 1),
         )
         panels.append(panel)
@@ -199,23 +219,25 @@ def plan_panels(plan: dict[str, Any]) -> list[Panel]:
 
 def plan_header(plan: dict[str, Any]) -> str:
     """One-line title rendered above the workspace panels in default mode."""
+    theme = get_theme()
     actions = plan.get("actions", [])
     kind = plan.get("kind", "plan")
-    return f"[bold cyan]Plan: {kind} ({len(actions)} actions)[/bold cyan]"
+    return f"[bold {theme.brand}]Plan: {kind} ({len(actions)} actions)[/]"
 
 
 def unsafe_actions_table(plan: dict[str, Any]) -> Table | None:
+    theme = get_theme()
     unsafe = [a for a in plan.get("actions", []) if not a.get("safe_to_execute")]
     if not unsafe:
         return None
     table = Table(
         title=f"⚠ Unsafe actions ({len(unsafe)}) — review before lifting any gate",
-        title_style="bold red",
+        title_style=f"bold {theme.unsafe}",
         header_style="bold",
     )
-    table.add_column("Workspace", style="cyan")
+    table.add_column("Workspace", style=theme.accent)
     table.add_column("Type")
-    table.add_column("Reason", style="red", overflow="fold")
+    table.add_column("Reason", style=theme.unsafe, overflow="fold")
     for a in unsafe:
         table.add_row(
             a.get("workspace", "?"),
@@ -226,11 +248,12 @@ def unsafe_actions_table(plan: dict[str, Any]) -> Table | None:
 
 
 def plan_footer(plan: dict[str, Any], plan_path: str) -> str:
+    theme = get_theme()
     s = plan.get("summary", {})
     return (
         f"[bold]Workspaces:[/bold] {s.get('workspace_count', 0)}  "
         f"[bold]Actions:[/bold] {s.get('action_count', 0)}  "
-        f"[bold red]Unsafe:[/bold red] {s.get('unsafe_count', 0)}  "
+        f"[bold {theme.unsafe}]Unsafe:[/] {s.get('unsafe_count', 0)}  "
         f"[dim]saved to {plan_path}[/dim]"
     )
 
@@ -265,6 +288,7 @@ _NEXT_STEP_HINTS: tuple[tuple[str, str], ...] = (
 
 def _sync_placement_line(sp: dict[str, Any] | None) -> str:
     """Render the single Sync placement line from the sync_placement record."""
+    theme = get_theme()
     if sp is None:
         return "[dim]? unknown[/dim]"
     state = sp.get("state")
@@ -272,18 +296,19 @@ def _sync_placement_line(sp: dict[str, Any] | None) -> str:
     if state == "synced":
         provider = sp.get("provider") or sp.get("synced_root") or "synced storage"
         if source == "env":
-            return f"[yellow]⚠ in CLAIN_SYNCED_ROOT[/yellow]  [dim]({sp.get('synced_root')})[/dim]"
-        return f"[yellow]⚠ in synced storage[/yellow]  [dim]({provider}; autodetected)[/dim]"
+            return f"[{theme.warning}]⚠ in CLAIN_SYNCED_ROOT[/]  [dim]({sp.get('synced_root')})[/dim]"
+        return f"[{theme.warning}]⚠ in synced storage[/]  [dim]({provider}; autodetected)[/dim]"
     if state == "local":
         if source == "env":
-            return f"[green]✓ not in CLAIN_SYNCED_ROOT[/green]  [dim]({sp.get('synced_root')})[/dim]"
-        return "[green]✓ local[/green]  [dim](no synced-storage pattern detected)[/dim]"
+            return f"[{theme.safe}]✓ not in CLAIN_SYNCED_ROOT[/]  [dim]({sp.get('synced_root')})[/dim]"
+        return f"[{theme.safe}]✓ local[/]  [dim](no synced-storage pattern detected)[/dim]"
     return "[dim]? unknown[/dim]  [dim](sync placement not autodetected on this platform)[/dim]"
 
 
 def _orientation(line: str) -> Text:
     """One-line orientation header above every primary output."""
-    return Text.from_markup(f"[bold cyan]{line}[/]")
+    theme = get_theme()
+    return Text.from_markup(f"[bold {theme.brand}]{line}[/]")
 
 
 def _rule() -> RenderableType:
@@ -314,6 +339,7 @@ def _ordered_class_keys(by_class: dict[str, list[str]]) -> list[str]:
 
 def _next_step_block(workspace: dict[str, Any]) -> RenderableType:
     """Render the 'Next step:' block for the --here classify view."""
+    theme = get_theme()
     manifests = set(workspace.get("manifests", []))
     cmd = None
     evidence = None
@@ -333,7 +359,7 @@ def _next_step_block(workspace: dict[str, Any]) -> RenderableType:
             cmd = "(no recognised manifest)"
             evidence = "—"
     body = Text.from_markup(
-        f"[cyan]clain plan recreate --here --dry[/cyan]\n"
+        f"[{theme.fix}]clain plan recreate --here --dry[/]\n"
         f"[dim]→ would run: [bold]{cmd}[/bold]  (derived from {evidence})[/dim]"
     )
     return Padding(body, (0, 4))
@@ -347,8 +373,9 @@ def _classify_legend_block() -> RenderableType:
     other. The classify Key explains the three classes; the plan Key adds
     columns and safe-glyph semantics.
     """
+    theme = get_theme()
     legend = Table(box=None, show_header=False, padding=(0, 1), pad_edge=False)
-    legend.add_column(style="yellow", no_wrap=True)
+    legend.add_column(style=theme.class_cache_managed, no_wrap=True)
     legend.add_column(overflow="fold")
     legend.add_row("cache-managed", "regenerable from a manifest")
     legend.add_row("bytecode", "regenerated automatically on use")
@@ -366,6 +393,7 @@ def classify_here_view(workspace: dict[str, Any], payload: dict[str, Any], *, le
     grouped layout: orientation, header block, class groups, next step, meta
     line, optional legend.
     """
+    theme = get_theme()
     items: list[RenderableType] = []
     items.append(_orientation("clain classify --here  →  one-workspace classification"))
     items.append(Text(""))
@@ -392,19 +420,20 @@ def classify_here_view(workspace: dict[str, Any], payload: dict[str, Any], *, le
         for cls_name in _ordered_class_keys(by_class):
             count = len(by_class[cls_name])
             desc = _CLASS_DESCRIPTIONS.get(cls_name, "")
+            cls_colour = _class_token(theme, cls_name)
             # Hanging-indent class header (spec 0014): count on its own line,
             # description and members aligned underneath. The eye reads
             # header → describing prose → instances top-to-bottom.
             items.append(
                 Padding(
-                    Text.from_markup(f"[bold yellow]{cls_name}[/] [dim]({count})[/]"),
+                    Text.from_markup(f"[bold {cls_colour}]{cls_name}[/] [dim]({count})[/]"),
                     (0, 4),
                 )
             )
             if desc:
                 items.append(Padding(Text.from_markup(f"[dim]{desc}[/]"), (0, 6)))
             for rel in sorted(by_class[cls_name]):
-                items.append(Padding(Text.from_markup(f"[cyan]{rel}[/]"), (0, 6)))
+                items.append(Padding(Text.from_markup(f"[{theme.accent}]{rel}[/]"), (0, 6)))
             items.append(Text(""))
     else:
         items.append(
@@ -478,25 +507,26 @@ def classify_tree_view(payload: dict[str, Any], *, legend: bool) -> Group:
 
 def _plan_legend_block() -> RenderableType:
     """Detailed key for the plan view. Explains every column and the safe-glyph semantics."""
+    theme = get_theme()
     legend = Table(box=None, show_header=False, padding=(0, 1), pad_edge=False)
     legend.add_column(style="bold dim", no_wrap=True)
     legend.add_column(overflow="fold")
     legend.add_row(
         "Type",
-        "[green]delete[/] · [green]recreate[/] · [green]move[/] · [green]smoke-test[/]",
+        f"[{theme.safe}]delete[/] · [{theme.safe}]recreate[/] · [{theme.safe}]move[/] · [{theme.safe}]smoke-test[/]",
     )
     legend.add_row(
         "Class",
-        "[yellow]cache-managed[/]   regenerable from a manifest (your real win)\n"
-        "[yellow]bytecode[/]        regenerated automatically on use\n"
-        "[yellow]ephemeral[/]       build output, regenerable by the build step",
+        f"[{theme.class_cache_managed}]cache-managed[/]   regenerable from a manifest (your real win)\n"
+        f"[{theme.class_bytecode}]bytecode[/]        regenerated automatically on use\n"
+        f"[{theme.class_ephemeral}]ephemeral[/]       build output, regenerable by the build step",
     )
     legend.add_row("Target", "path being acted on, relative to the workspace location")
     legend.add_row("Command", "the actual shell command this action represents")
     legend.add_row(
         "Safe?",
-        "[green]✓[/] — clain has all it needs to run this reproducibly\n"
-        "[red]✗[/] — something blocks safe execution; run `clain plan explain <ACTION_ID>` for the reason",
+        f"[{theme.safe}]✓[/] — clain has all it needs to run this reproducibly\n"
+        f"[{theme.unsafe}]✗[/] — something blocks safe execution; run `clain plan explain <ACTION_ID>` for the reason",
     )
     return Group(
         Padding(Text.from_markup("[bold]Key[/]"), (0, 2)),
@@ -506,6 +536,7 @@ def _plan_legend_block() -> RenderableType:
 
 def _plan_meta_block(plan: dict[str, Any], saved_path: str, *, mode: str) -> RenderableType:
     """Structured Summary / Saved / Mode rows replacing the single-line footer."""
+    theme = get_theme()
     s = plan.get("summary", {})
     meta = Table(box=None, show_header=False, padding=(0, 1), pad_edge=False)
     meta.add_column(style="bold dim", no_wrap=True)
@@ -514,7 +545,7 @@ def _plan_meta_block(plan: dict[str, Any], saved_path: str, *, mode: str) -> Ren
         "Summary",
         f"{s.get('workspace_count', 0)} workspace  ·  "
         f"{s.get('action_count', 0)} actions  ·  "
-        f"[red]{s.get('unsafe_count', 0)} unsafe[/red]",
+        f"[{theme.unsafe}]{s.get('unsafe_count', 0)} unsafe[/]",
     )
     meta.add_row("Saved", f"[dim]{saved_path}[/dim]")
     meta.add_row(
