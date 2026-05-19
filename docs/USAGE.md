@@ -201,6 +201,41 @@ What `safe_to_execute: false` means (look for it in `--json` output or the red "
 - `package.json without a lockfile — recreate would resolve fresh versions` — non-reproducible. Commit a lockfile first.
 - `no recognised manifest — investigate manually` — workspace has cache-managed subtrees but no manifest `clain` understands.
 
+## Orientation: the brand meter, command emoji, intent line, and first-run banner
+
+Every primary `clain` render opens with a fixed anchor row and a plain-English intent line:
+
+```
+▰▰▱▱▱  clain  🏷  classify --here
+
+  Categorical scan of this workspace — what's regenerable, what isn't, and
+  the recreate command derived from your manifest.
+```
+
+The five-block meter shows where the command sits in the conceptual workflow — `classify` is **2/5** (look at what's there), `plan recreate --dry` / `plan move --dry` is **3/5** (preview), `plan explain` is **4/5** (drill in), and the (currently gate-blocked) execute path is **5/5**. The filled blocks pick up the Tokyo Night brand-gradient colours; empty blocks render dim.
+
+The emoji disambiguates per command: 🏷 `classify`, ♻️ `plan recreate`, 📦 `plan move`, 💬 `plan explain`. The intent line below describes what the command is *for*, not what was typed — restating the command is the shell's job.
+
+On your first ever `classify` invocation per machine, `clain` prepends a one-shot ASCII-art banner with the project tagline and repo URL. The marker file lives at `$XDG_STATE_HOME/clain/banner-shown`. To force the banner on (e.g. for screenshots) or off:
+
+```sh
+clain classify --here --banner       # force show
+clain classify --here --no-banner    # force hide
+CLAIN_BANNER=off clain classify --here
+```
+
+`--json` mode never emits the banner; pipelines stay clean. `--banner` (the force-show flag) deliberately does **not** consume the first-run marker, so a screenshot run doesn't "eat" the user's real first contact.
+
+## Plan JSON: the `action` field
+
+The plan JSON identifies each entry's action category in an `action` field (delete / recreate / move / smoke-test):
+
+```json
+{ "action": "delete", "class": "cache-managed", "target": "...", "commands": [...] }
+```
+
+The schema version is **2** (spec 0016 bumped from 1 along with the `type → action` rename). Persisted plan files live at `$XDG_STATE_HOME/clain/plans/<kind>-<UTC>-v<schema>.json`; older schema-1 files are no longer loadable by `plan explain` — regenerate with `clain plan recreate` (or `plan move --dest …`) when you see the regenerate prompt. Stale-schema plans older than 7 days are pruned automatically on the next plan save.
+
 ## Theme
 
 `clain` ships a Tokyo Night palette in two variants — **dark** (default) and **light**. The renderer never names a colour directly; every reference goes through a named token in [`src/clain/ui/theme.py`](../src/clain/ui/theme.py) (`brand`, `safe`, `unsafe`, `warning`, `fix`, `dim`, `accent`, plus per-class colours), so the dark↔light swap is a single resolution call.

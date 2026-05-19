@@ -10,7 +10,7 @@
       "rationale": "x",
       "safe_to_execute": true,
       "target": "/fixture/dev/alpha/node_modules",
-      "type": "delete",
+      "action": "delete",
       "unsafe_reason": null,
       "workspace": "alpha"
     },
@@ -26,7 +26,7 @@
       "rationale": "x",
       "safe_to_execute": true,
       "target": "/fixture/dev/alpha",
-      "type": "recreate",
+      "action": "recreate",
       "unsafe_reason": null,
       "workspace": "alpha"
     },
@@ -40,7 +40,7 @@
       "rationale": "x",
       "safe_to_execute": false,
       "target": "/fixture/dev/beta/.venv",
-      "type": "delete",
+      "action": "delete",
       "unsafe_reason": "ambiguous Python toolchain",
       "workspace": "beta"
     }
@@ -50,7 +50,7 @@
   "kind": "recreate",
   "root": "/fixture/dev",
   "rules_schema": 1,
-  "schema": 1,
+  "schema": 2,
   "summary": {
     "action_count": 3,
     "unsafe_count": 1,

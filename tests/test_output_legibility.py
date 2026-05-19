@@ -62,8 +62,12 @@ def _build_here_payload(tmp_path: Path) -> dict[str, Any]:
 def test_classify_here_view_orientation_and_header(tmp_path: Path) -> None:
     payload = _build_here_payload(tmp_path)
     text = _cap(classify_here_view(payload["workspaces"][0], payload, legend=True))
-    assert "clain classify --here" in text
-    assert "one-workspace classification" in text
+    # Spec 0016: orientation is the brand-meter anchor + intent line. The
+    # command name appears in the anchor row; the intent line describes the
+    # purpose, replacing the legacy `→  one-workspace classification` text.
+    assert "classify --here" in text
+    assert "clain" in text
+    assert "regenerable" in text  # part of the classify_here intent line
     # Label-aligned metadata block.
     assert "Workspace:" in text
     assert "Location:" in text
@@ -116,8 +120,10 @@ def test_classify_tree_view_orientation_and_default_no_legend(tmp_path: Path) ->
     make_pixi_workspace(root, "two")
     payload = cls.run_classify(root)
     text = _cap(classify_tree_view(payload, legend=False))
-    assert "clain classify" in text
-    assert "multi-workspace classification" in text
+    # Spec 0016 orientation: anchor row + intent line, no command restate.
+    assert "clain" in text
+    assert "classify" in text
+    assert "every workspace" in text  # part of the classify_tree intent line
     # Existing classify_table title still present.
     assert "Workspace classification" in text
     # No Key in tree mode by default (spec 0014: block-form Key header).
@@ -150,8 +156,10 @@ def _build_recreate_plan(tmp_path: Path) -> dict[str, Any]:
 def test_plan_view_orientation_header(tmp_path: Path) -> None:
     plan = _build_recreate_plan(tmp_path)
     text = _cap(plan_view(plan, saved_path="(test)", legend=True))
-    assert "clain plan recreate" in text
-    assert "delete-and-recreate plan" in text
+    # Spec 0016: anchor row + intent line. The legacy command-restate text
+    # (`clain plan recreate --here --dry  →  delete-and-recreate plan`) is gone.
+    assert "plan recreate" in text
+    assert "review step" in text  # part of the plan_recreate_dry intent line
 
 
 def test_plan_view_key_section_when_legend_on(tmp_path: Path) -> None:
@@ -203,7 +211,8 @@ def test_plan_view_table_mode_uses_flat(tmp_path: Path) -> None:
     text = _cap(plan_view(plan, saved_path="(test)", legend=False, flat_table=True))
     # The flat table has a "Workspace" column header.
     assert "Workspace" in text
-    assert "Type" in text
+    # Spec 0016 rename: "Type" column became "Action".
+    assert "Action" in text
 
 
 # --- spec 0012 snapshot still passes (spec 0013 wraps, doesn't change inner) ----

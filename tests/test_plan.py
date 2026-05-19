@@ -42,7 +42,7 @@ def _actions_by_workspace(plan: dict[str, Any], name: str) -> list[dict[str, Any
 def test_recreate_plan_pnpm_safe(classified: dict[str, Any]) -> None:
     plan = planmod.build_recreate_plan(classified)
     actions = _actions_by_workspace(plan, "with-pnpm")
-    recreate = next(a for a in actions if a["type"] == "recreate")
+    recreate = next(a for a in actions if a["action"] == "recreate")
     assert recreate["safe_to_execute"] is True
     assert recreate["commands"] == ["pnpm install --frozen-lockfile"]
 
@@ -50,7 +50,7 @@ def test_recreate_plan_pnpm_safe(classified: dict[str, Any]) -> None:
 def test_recreate_plan_pixi_safe(classified: dict[str, Any]) -> None:
     plan = planmod.build_recreate_plan(classified)
     actions = _actions_by_workspace(plan, "with-pixi")
-    recreate = next(a for a in actions if a["type"] == "recreate")
+    recreate = next(a for a in actions if a["action"] == "recreate")
     assert recreate["safe_to_execute"] is True
     assert recreate["commands"] == ["pixi install"]
 
@@ -58,7 +58,7 @@ def test_recreate_plan_pixi_safe(classified: dict[str, Any]) -> None:
 def test_recreate_plan_uv_safe(classified: dict[str, Any]) -> None:
     plan = planmod.build_recreate_plan(classified)
     actions = _actions_by_workspace(plan, "with-uv")
-    recreate = next(a for a in actions if a["type"] == "recreate")
+    recreate = next(a for a in actions if a["action"] == "recreate")
     assert recreate["safe_to_execute"] is True
     assert recreate["commands"] == ["uv sync"]
 
@@ -66,7 +66,7 @@ def test_recreate_plan_uv_safe(classified: dict[str, Any]) -> None:
 def test_recreate_plan_ambiguous_python_unsafe(classified: dict[str, Any]) -> None:
     plan = planmod.build_recreate_plan(classified)
     actions = _actions_by_workspace(plan, "ambiguous-py")
-    recreate = next(a for a in actions if a["type"] == "recreate")
+    recreate = next(a for a in actions if a["action"] == "recreate")
     assert recreate["safe_to_execute"] is False
     assert "ambiguous Python toolchain" in (recreate["unsafe_reason"] or "")
 
@@ -74,7 +74,7 @@ def test_recreate_plan_ambiguous_python_unsafe(classified: dict[str, Any]) -> No
 def test_recreate_plan_no_lockfile_unsafe(classified: dict[str, Any]) -> None:
     plan = planmod.build_recreate_plan(classified)
     actions = _actions_by_workspace(plan, "without-lock")
-    recreate = next(a for a in actions if a["type"] == "recreate")
+    recreate = next(a for a in actions if a["action"] == "recreate")
     assert recreate["safe_to_execute"] is False
     assert "lockfile" in (recreate["unsafe_reason"] or "")
 
@@ -82,9 +82,9 @@ def test_recreate_plan_no_lockfile_unsafe(classified: dict[str, Any]) -> None:
 def test_recreate_plan_ephemeral_has_delete_only(classified: dict[str, Any]) -> None:
     plan = planmod.build_recreate_plan(classified)
     actions = _actions_by_workspace(plan, "build-only")
-    assert any(a["type"] == "delete" for a in actions)
+    assert any(a["action"] == "delete" for a in actions)
     # No recreate action for ephemeral.
-    assert not any(a["type"] == "recreate" for a in actions)
+    assert not any(a["action"] == "recreate" for a in actions)
 
 
 def test_move_plan_only_in_sync_workspaces(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -126,7 +126,7 @@ def test_move_plan_flags_venv_in_preconditions(tmp_path: Path, monkeypatch: pyte
     )
     classified = cls.run_classify(synced)
     plan = planmod.build_move_plan(classified, tmp_path / "dest")
-    move_action = next(a for a in plan["actions"] if a["type"] == "move")
+    move_action = next(a for a in plan["actions"] if a["action"] == "move")
     assert any("venv" in pre.lower() and "pyvenv.cfg" in pre.lower() for pre in move_action["preconditions"])
 
 

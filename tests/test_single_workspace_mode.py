@@ -164,7 +164,7 @@ def test_plan_recreate_here_consumes_single_workspace_cache(tmp_path: Path) -> N
     plan = json.loads(plan_result.stdout)
     workspaces_in_plan = {a["workspace"] for a in plan["actions"]}
     assert workspaces_in_plan == {"alpha"}
-    recreate_actions = [a for a in plan["actions"] if a["type"] == "recreate"]
+    recreate_actions = [a for a in plan["actions"] if a["action"] == "recreate"]
     assert recreate_actions, "expected at least one recreate action"
     assert recreate_actions[0]["commands"] == ["pixi install"]
 

@@ -63,6 +63,46 @@ def plan_dir() -> Path:
     return clain_state_dir() / "plans"
 
 
+# Grace window before stale-schema plan files are deleted. Plans are throwaway
+# (re-derivable from a fresh classify), so a week of retention is generous.
+_PLAN_STALE_GRACE_DAYS = 7
+
+
+def prune_stale_plan_files(current_schema: int, *, grace_days: int = _PLAN_STALE_GRACE_DAYS) -> list[Path]:
+    """Remove plan files older than `grace_days` whose embedded schema isn't current.
+
+    Spec 0016. Inspects each `*.json` under `plan_dir()`; if its `schema` field
+    differs from `current_schema` and its mtime is older than the grace window,
+    it's deleted. Returns the list of removed paths (caller may log; tests use
+    it as a machine-checkable signal).
+    """
+    import time
+
+    pdir = plan_dir()
+    if not pdir.exists():
+        return []
+    cutoff = time.time() - (grace_days * 86400)
+    removed: list[Path] = []
+    for path in pdir.glob("*.json"):
+        try:
+            mtime = path.stat().st_mtime
+        except FileNotFoundError:
+            continue
+        if mtime > cutoff:
+            continue
+        data = read_json(path)
+        if data is None:
+            continue
+        schema = data.get("schema")
+        if isinstance(schema, int) and schema != current_schema:
+            try:
+                path.unlink()
+                removed.append(path)
+            except FileNotFoundError:
+                pass
+    return removed
+
+
 def log_path(name: str) -> Path:
     return clain_state_dir() / "logs" / f"{name}.log"
 
