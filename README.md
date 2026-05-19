@@ -7,10 +7,10 @@
 The everyday entry point is one workspace at a time. Two-command demo:
 
 ```sh
-pixi install                                   # one-off
-cd ~/some/project                              # any project with pyproject.toml / package.json / etc.
-pixi run clain classify --here                 # categorical view of THIS workspace
-pixi run clain plan recreate --here --dry      # what a clean rebuild would look like
+pipx install git+https://github.com/drai-inn/clain.git   # one-off (or `pixi global install` — see "Three ways in")
+cd ~/some/project                                        # any project with pyproject.toml / package.json / etc.
+clain classify --here                                    # categorical view of THIS workspace
+clain plan recreate --here --dry                         # what a clean rebuild would look like
 ```
 
 Here's what the single-workspace classify looks like against a project with both a Pixi env and the usual Python tool caches:
@@ -51,13 +51,22 @@ See [INTENT.md](INTENT.md) for the project's mission. See [docs/USAGE.md](docs/U
 
 ## Three ways in
 
+The end-user install is a one-off:
+
+```sh
+pipx install git+https://github.com/drai-inn/clain.git
+# or, if you already use pixi for everything:
+pixi global install --git https://github.com/drai-inn/clain.git clain
+```
+
+Both produce a `clain` binary on `PATH`. The contributor path (running from a checkout) is covered separately below.
+
 ### I want to tidy one project
 
 ```sh
-pixi install
 cd ~/some/project
-pixi run clain classify --here
-pixi run clain plan recreate --here --dry
+clain classify --here
+clain plan recreate --here --dry
 ```
 
 This is the lowest-friction entry point. Walkthrough in [docs/USAGE.md](docs/USAGE.md).
@@ -69,9 +78,9 @@ If your historical `dev/` directory has accumulated dozens of AI-spawned workspa
 ```sh
 export CLAIN_DEV_ROOT=~/some/dev/tree              # no personal-info default baked in
 # sync placement is autodetected on macOS against known synced-storage patterns
-pixi run clain classify
-pixi run clain plan recreate --dry
-pixi run clain plan move --dest ~/dev/ --dry
+clain classify
+clain plan recreate --dry
+clain plan move --dest ~/dev/ --dry
 ```
 
 In tree mode `clain` enumerates each workspace under `CLAIN_DEV_ROOT` and classifies them side by side:
@@ -99,7 +108,9 @@ Sync placement is autodetected on macOS against known synced-storage path patter
 
 ### I want to extend or contribute
 
-The project is spec-driven. Every non-trivial change starts as a numbered spec under [`specs/`](specs/), reaches an *aligned* goal-advisor verdict, and lands via a feature-branch + PR. The full developer workflow is in [CONTRIBUTING.md](CONTRIBUTING.md).
+<!-- contributor-only -->
+The project is spec-driven. Every non-trivial change starts as a numbered spec under [`specs/`](specs/), reaches an *aligned* goal-advisor verdict, and lands via a feature-branch + PR. The full developer workflow is in [CONTRIBUTING.md](CONTRIBUTING.md). From a checkout, contributors invoke the CLI as `pixi run clain …` rather than the global `clain` binary, so local edits are exercised without re-installing.
+<!-- /contributor-only -->
 
 ---
 

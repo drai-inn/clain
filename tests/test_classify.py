@@ -124,7 +124,9 @@ def test_classify_prunes_class_dirs(tmp_path: Path) -> None:
 def test_classify_cli_requires_root(tmp_path: Path) -> None:
     result = runner.invoke(app, ["classify"])
     assert result.exit_code != 0
-    assert "CLAIN_DEV_ROOT" in result.output or "dev root" in result.output.lower()
+    # Spec 0015: error names the env var and the export-line fix.
+    assert "CLAIN_DEV_ROOT" in result.output
+    assert "export" in result.output
 
 
 def test_classify_cli_json(fake_root: Path) -> None:
