@@ -25,11 +25,13 @@ clain classify --here  →  one-workspace classification
 
   Regenerable subtrees (6):
 
-    cache-managed (1)   Lives in a per-ecosystem store. Safe to delete if
-    you can re-install — your manifest tells clain how.
+    cache-managed (1)
+      Lives in a per-ecosystem store. Safe to delete if you can
+      re-install — your manifest tells clain how.
       .pixi
 
-    bytecode (5)   Regenerated automatically on the next run.
+    bytecode (5)
+      Regenerated automatically on the next run.
       .mypy_cache
       .pytest_cache
       .ruff_cache

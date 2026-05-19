@@ -12,4 +12,6 @@ clain classify  →  multi-workspace classification
  │ example-uv-pr… │      ·       │ cache-managed… │ pyproject.toml │        │ 
  │                │              │                │ , uv.lock      │        │ 
  └────────────────┴──────────────┴────────────────┴────────────────┴────────┘ 
-  Workspaces: 4  In synced tree: 0/4  Class tags: 5  scan 0.008s              
+
+  Workspaces: 4  In synced tree: 0/4  Class tags: 5  scan 0.009s              
+

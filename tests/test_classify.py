@@ -9,6 +9,7 @@ import pytest
 from typer.testing import CliRunner
 
 from clain import classify as cls
+from clain.classify import SCHEMA_VERSION
 from clain.cli import app
 from clain.state import classify_cache_path
 from tests.conftest import (
@@ -130,14 +131,16 @@ def test_classify_cli_json(fake_root: Path) -> None:
     result = runner.invoke(app, ["classify", str(fake_root), "--json", "--no-cache"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert payload["schema"] == 1
+    # Schema bumped to 2 in spec 0014 (force cache invalidation across 0013).
+    assert payload["schema"] == SCHEMA_VERSION
     assert len(payload["workspaces"]) == 4
 
 
 def test_classify_cli_caches_to_xdg_state(fake_root: Path) -> None:
     result = runner.invoke(app, ["classify", str(fake_root), "--json"])
     assert result.exit_code == 0
-    assert classify_cache_path(fake_root.resolve()).exists()
+    # Spec 0014: cache filename is schema-versioned.
+    assert classify_cache_path(fake_root.resolve(), SCHEMA_VERSION).exists()
 
 
 def test_classify_cli_workspace_drilldown(fake_root: Path) -> None:

@@ -46,11 +46,13 @@ clain classify --here  →  one-workspace classification
 
   Regenerable subtrees (6):
 
-    cache-managed (1)   Lives in a per-ecosystem store. Safe to delete if
-    you can re-install — your manifest tells clain how.
+    cache-managed (1)
+      Lives in a per-ecosystem store. Safe to delete if you can
+      re-install — your manifest tells clain how.
       .pixi
 
-    bytecode (5)   Regenerated automatically on the next run.
+    bytecode (5)
+      Regenerated automatically on the next run.
       .mypy_cache
       .pytest_cache
       .ruff_cache
@@ -61,11 +63,14 @@ clain classify --here  →  one-workspace classification
     clain plan recreate --here --dry
     → would run: pixi install  (derived from pixi.toml)
 
-  ──────────────────────────────────────────────────────────────────────
+  ────────────────────────────────────────────────────────────────────────
+
   scan 0.001s
 
-  Key:  cache-managed regenerable from a manifest  ·  bytecode
-  regenerated on use  ·  ephemeral build output
+  Key
+    cache-managed  regenerable from a manifest
+    bytecode       regenerated automatically on use
+    ephemeral      build output, regenerable by the build step
 ```
 
 A few things to notice:
@@ -75,7 +80,9 @@ A few things to notice:
 - **Manifests** drive the recreate command derivation (here: `pixi install` from `pixi.toml`).
 - The **Regenerable subtrees** section names each class with a one-line description of what that class *means* before listing its members. The scan stops at every class boundary — `.pixi/` is one entry, not 100 nested `__pycache__` directories.
 - The **Next step** block names the command and what it would run.
-- The **Key** at the bottom is a quick reminder of class semantics. Use `--no-legend` to suppress it (or set `CLAIN_LEGEND=off`).
+- The **Key** block at the bottom is a quick reminder of class semantics — same shape as the plan-view Key, so the same reading habit works on both. Use `--no-legend` to suppress it (or set `CLAIN_LEGEND=off`).
+
+A note on typography (spec 0014): the horizontal rule is a fixed-measure line that separates the body content from the run-meta footer; meta lines like `(cached — pass --refresh to rescan)` and `(dry mode — execution skipped)` sit indented below the rule with one blank line of breathing room above them.
 
 Then ask for the plan:
 

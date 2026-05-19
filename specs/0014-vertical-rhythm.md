@@ -1,7 +1,7 @@
 ---
 id: 0014
 title: Vertical rhythm + 0013 follow-through fixes
-status: draft
+status: shipped
 goal: Goal 1 (Categorical visibility — the output should *teach*, which requires the typography between sections to be intentional, not accidental); Goal 7 (Honest sync hygiene — leftover `CLAIN_SYNCED_ROOT` hint text in the renderer contradicts the 0013 removal)
 ---
 
@@ -262,18 +262,18 @@ These tests deliberately assert on **render shape** (blank lines, indent prefixe
 
 ## Acceptance
 
-- [ ] `~/.local/state/clain/classify/<root-hash>-v2.json` is the cache filename produced by the current binary; pre-existing `<root-hash>.json` / `<root-hash>-v1.json` files are ignored and removed on next access.
-- [ ] No render produced by `classify` or `plan recreate` (default, `--table`, or `--json` modes) contains the literal string `CLAIN_SYNCED_ROOT`. Verified by `test_no_env_var_strings_in_rendered_output`.
-- [ ] `(cached …)` and `(dry mode …)` lines render with one blank line above and indented to `BODY_INDENT`.
-- [ ] Every `Rule()` has one blank line above and below; rules are ≤ `RULE_WIDTH` characters wide and left-aligned to `BODY_INDENT`.
-- [ ] Class headers on `classify --here` use the hanging-indent form: header line ends at the count, description on the next indented line, members below.
-- [ ] The Key block on `classify --here` is the multi-line block form, matching the shape used by `plan recreate`.
-- [ ] Every render ends with a trailing blank line.
-- [ ] `src/clain/ui/rhythm.py` exists and exports the four constants; no renderer hard-codes the values it owns.
-- [ ] Plan JSON is byte-identical (the spec 0012 invariant); the inner `plan_table_flat()` Rich `Table` snapshot from spec 0012 is byte-identical.
-- [ ] Tests above pass; `pixi run -e dev test`, `lint`, `typecheck` all clean.
-- [ ] Captures regenerated; CHANGELOG entry added.
-- [ ] PR follows the workflow template.
+- [x] `~/.local/state/clain/classify/<root-hash>-v2.json` is the cache filename produced by the current binary; pre-existing `<root-hash>.json` / `<root-hash>-v1.json` files are ignored and removed on next access.
+- [x] No render produced by `classify` or `plan recreate` (default, `--table`, or `--json` modes) contains the literal string `CLAIN_SYNCED_ROOT`. Verified by `test_no_env_var_strings_in_*_renders`.
+- [x] `(cached …)` and `(dry mode …)` lines render with one blank line above and indented to `BODY_INDENT`.
+- [x] Every horizontal rule has one blank line above and below; rules are ≤ `RULE_WIDTH` characters wide and left-aligned to `BODY_INDENT`.
+- [x] Class headers on `classify --here` use the hanging-indent form: header line ends at the count, description on the next indented line, members below.
+- [x] The Key block on `classify --here` is the multi-line block form, matching the shape used by `plan recreate`.
+- [x] Every render ends with a trailing blank line.
+- [x] `src/clain/ui/rhythm.py` exists and exports the four constants; no renderer hard-codes the values it owns.
+- [x] Plan JSON is byte-identical (the spec 0012 invariant); the inner `plan_table_flat()` Rich `Table` snapshot from spec 0012 is byte-identical (existing `test_plan_table_flat_snapshot_unchanged` still passes).
+- [x] Tests above pass; `pixi run -e dev test`, `lint`, `typecheck` all clean.
+- [x] Captures regenerated; CHANGELOG entry added.
+- [x] PR follows the workflow template.
 
 ## Out of scope
 

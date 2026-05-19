@@ -25,12 +25,17 @@ from clain.rules_loader import Rules, load_rules
 from clain.state import (
     append_log,
     classify_cache_path,
+    prune_stale_classify_caches,
     read_json,
     write_json,
 )
 from clain.sync_detect import detect_synced_storage
 
-SCHEMA_VERSION = 1
+# Bumped to 2 in spec 0014. The 0013 sync_placement block was technically
+# additive, but bumping forces a clean cache invalidation across the user
+# base — old caches lack sync_placement and would render as "unknown" under
+# the new code.
+SCHEMA_VERSION = 2
 
 
 @dataclass
@@ -232,12 +237,15 @@ def run_classify(
 
 
 def load_cached(root: Path) -> dict[str, Any] | None:
-    return read_json(classify_cache_path(root))
+    return read_json(classify_cache_path(root, SCHEMA_VERSION))
 
 
 def save_cache(root: Path, payload: dict[str, Any]) -> Path:
-    path = classify_cache_path(root)
+    path = classify_cache_path(root, SCHEMA_VERSION)
     write_json(path, payload)
+    # Sweep any stale-schema cache files for this root so the disk doesn't
+    # accumulate dead caches across upgrades (spec 0014).
+    prune_stale_classify_caches(root, SCHEMA_VERSION)
     return path
 
 

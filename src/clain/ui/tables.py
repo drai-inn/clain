@@ -9,10 +9,10 @@ from rich import box
 from rich.console import Group, RenderableType
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
-from rich.tree import Tree
+
+from clain.ui.rhythm import BODY_INDENT, META_INDENT, RULE_WIDTH
 
 
 def classify_table(payload: dict[str, Any]) -> Table:
@@ -43,109 +43,6 @@ def classify_table(payload: dict[str, Any]) -> Table:
             errors,
         )
     return table
-
-
-def classify_footer(payload: dict[str, Any]) -> str:
-    scan = payload.get("scan", {})
-    workspaces = payload.get("workspaces", [])
-    synced_root = scan.get("synced_root")
-    in_sync_count = sum(1 for w in workspaces if w.get("in_sync_tree") is True)
-    unknown_count = sum(1 for w in workspaces if w.get("in_sync_tree") is None)
-    sync_summary = (
-        "[bold]Sync placement:[/bold] unknown ([cyan]CLAIN_SYNCED_ROOT[/cyan] not set)"
-        if synced_root is None
-        else f"[bold]In synced tree:[/bold] {in_sync_count}/{len(workspaces)}"
-    )
-    footer = (
-        f"[bold]Workspaces:[/bold] {len(workspaces)}  "
-        f"{sync_summary}  "
-        f"[bold]Class tags:[/bold] {scan.get('total_class_tags', 0)}  "
-        f"[dim]scan {scan.get('duration_seconds', '?')}s[/dim]"
-    )
-    if synced_root is None and unknown_count > 0:
-        footer += (
-            "\n[dim]Pass [cyan]CLAIN_SYNCED_ROOT[/cyan] (e.g. your GDrive / OneDrive / Dropbox / iCloud "
-            "Drive path) to enable in-sync detection.[/dim]"
-        )
-    return footer
-
-
-def single_workspace_tree(workspace: dict[str, Any], payload: dict[str, Any]) -> Tree:
-    """Render a single workspace as a Rich Tree (spec 0010).
-
-    Used when `clain classify --here` produces a one-workspace payload. The
-    multi-row classify_table is wrong shape for this case.
-    """
-    name = workspace.get("name", "?")
-    path = workspace.get("path", "?")
-    tree = Tree(f"[bold cyan]{name}[/bold cyan]  [dim]({path})[/dim]")
-
-    manifests = workspace.get("manifests", [])
-    manifest_str = ", ".join(manifests) if manifests else "—"
-    tree.add(f"[bold]Manifests:[/bold] {manifest_str}")
-
-    in_sync = workspace.get("in_sync_tree")
-    sync_str = (
-        "[green]✓ in synced tree[/green]"
-        if in_sync is True
-        else "[yellow]· not in synced tree[/yellow]"
-        if in_sync is False
-        else "[dim]? unknown (CLAIN_SYNCED_ROOT not set)[/dim]"
-    )
-    tree.add(f"[bold]Sync placement:[/bold] {sync_str}")
-
-    # Group class tags by class name and add a sub-branch per class.
-    by_class: dict[str, list[str]] = defaultdict(list)
-    for tag in workspace.get("class_tags", []):
-        by_class[tag.get("class", "?")].append(tag.get("relative_path", "?"))
-
-    if by_class:
-        for cls_name in sorted(by_class.keys()):
-            style = {
-                "cache-managed": "yellow",
-                "ephemeral": "magenta",
-                "bytecode": "blue",
-            }.get(cls_name, "white")
-            branch = tree.add(f"[{style} bold]{cls_name}[/]")
-            for rel in sorted(by_class[cls_name]):
-                branch.add(f"[{style}]{rel}[/]")
-    else:
-        tree.add("[dim]No class tags (workspace-source only).[/dim]")
-
-    errors = workspace.get("errors", [])
-    if errors:
-        err_branch = tree.add(f"[red bold]Errors ({len(errors)})[/]")
-        for err in errors[:5]:
-            err_branch.add(f"[red]{err}[/]")
-
-    return tree
-
-
-def single_workspace_footer(workspace: dict[str, Any], payload: dict[str, Any]) -> str:
-    """One-line narrative under the tree: what the next command would do."""
-    scan = payload.get("scan", {})
-    duration = scan.get("duration_seconds", "?")
-    manifests = set(workspace.get("manifests", []))
-    # Quick deterministic hint for the common manifest cases. (Authoritative
-    # derivation lives in clain.plan; this is just a helpful pointer.)
-    next_step: str
-    if "pixi.toml" in manifests:
-        next_step = "clain plan recreate --here --dry  →  pixi install"
-    elif "uv.lock" in manifests:
-        next_step = "clain plan recreate --here --dry  →  uv sync"
-    elif "pnpm-lock.yaml" in manifests:
-        next_step = "clain plan recreate --here --dry  →  pnpm install --frozen-lockfile"
-    elif "package-lock.json" in manifests:
-        next_step = "clain plan recreate --here --dry  →  npm ci"
-    elif "yarn.lock" in manifests:
-        next_step = "clain plan recreate --here --dry  →  yarn install --frozen-lockfile"
-    elif "pyproject.toml" in manifests:
-        next_step = "clain plan recreate --here --dry  →  (ambiguous Python toolchain — pin one of pixi/uv/poetry)"
-    elif "package.json" in manifests:
-        next_step = "clain plan recreate --here --dry  →  (no lockfile — recreate would resolve fresh versions)"
-    else:
-        next_step = "clain plan recreate --here --dry  →  (no recognised manifest — investigate manually)"
-    return f"[bold]Next:[/bold] {next_step}  [dim]scan {duration}s[/dim]"
 
 
 def workspace_detail_table(workspace: dict[str, Any]) -> Table:
@@ -250,8 +147,6 @@ def plan_panels(plan: dict[str, Any]) -> list[Panel]:
     the caller prints them in order. The JSON shape behind the plan is not
     touched — relativisation is render-only.
     """
-    from collections import defaultdict
-
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     workspace_paths: dict[str, str] = {}
     for a in plan.get("actions", []):
@@ -383,12 +278,32 @@ def _sync_placement_line(sp: dict[str, Any] | None) -> str:
         if source == "env":
             return f"[green]✓ not in CLAIN_SYNCED_ROOT[/green]  [dim]({sp.get('synced_root')})[/dim]"
         return "[green]✓ local[/green]  [dim](no synced-storage pattern detected)[/dim]"
-    return "[dim]? unknown[/dim]  [dim](set CLAIN_SYNCED_ROOT to enable in-sync detection)[/dim]"
+    return "[dim]? unknown[/dim]  [dim](sync placement not autodetected on this platform)[/dim]"
 
 
 def _orientation(line: str) -> Text:
     """One-line orientation header above every primary output."""
     return Text.from_markup(f"[bold cyan]{line}[/]")
+
+
+def _rule() -> RenderableType:
+    """Fixed-measure horizontal rule (spec 0014).
+
+    Rich's `Rule()` expands to terminal width, which reads as a horizontal scar
+    on wide terminals. We want punctuation between sections, not architecture —
+    so we use a plain Text of `RULE_WIDTH` `─` chars, indented to `BODY_INDENT`.
+    """
+    return Text(f"{BODY_INDENT}{'─' * RULE_WIDTH}", style="dim")
+
+
+def _meta_line(markup: str) -> RenderableType:
+    """Render a status/meta line (e.g. `(cached …)`) with `META_INDENT`.
+
+    These lines are deliberate asides — typography-wise they sit below the
+    body content, indented to the same column, dim-styled. The blank line
+    above them is owned by whichever code emits them.
+    """
+    return Text.from_markup(f"{META_INDENT}{markup}")
 
 
 def _ordered_class_keys(by_class: dict[str, list[str]]) -> list[str]:
@@ -425,15 +340,22 @@ def _next_step_block(workspace: dict[str, Any]) -> RenderableType:
 
 
 def _classify_legend_block() -> RenderableType:
-    """Compact one-liner key for the --here classify view."""
-    return Padding(
-        Text.from_markup(
-            "[bold dim]Key:[/]  "
-            "[yellow]cache-managed[/] regenerable from a manifest  ·  "
-            "[yellow]bytecode[/] regenerated on use  ·  "
-            "[yellow]ephemeral[/] build output"
-        ),
-        (0, 2),
+    """Block-form key for the classify views (spec 0014).
+
+    Convergent with `_plan_legend_block` — one shape across views so a reader
+    who learned to read the Key in one place reads it the same way in the
+    other. The classify Key explains the three classes; the plan Key adds
+    columns and safe-glyph semantics.
+    """
+    legend = Table(box=None, show_header=False, padding=(0, 1), pad_edge=False)
+    legend.add_column(style="yellow", no_wrap=True)
+    legend.add_column(overflow="fold")
+    legend.add_row("cache-managed", "regenerable from a manifest")
+    legend.add_row("bytecode", "regenerated automatically on use")
+    legend.add_row("ephemeral", "build output, regenerable by the build step")
+    return Group(
+        Padding(Text.from_markup("[bold]Key[/]"), (0, 2)),
+        Padding(legend, (0, 4)),
     )
 
 
@@ -470,12 +392,17 @@ def classify_here_view(workspace: dict[str, Any], payload: dict[str, Any], *, le
         for cls_name in _ordered_class_keys(by_class):
             count = len(by_class[cls_name])
             desc = _CLASS_DESCRIPTIONS.get(cls_name, "")
+            # Hanging-indent class header (spec 0014): count on its own line,
+            # description and members aligned underneath. The eye reads
+            # header → describing prose → instances top-to-bottom.
             items.append(
                 Padding(
-                    Text.from_markup(f"[bold yellow]{cls_name}[/] [dim]({count})[/]   [dim]{desc}[/]"),
+                    Text.from_markup(f"[bold yellow]{cls_name}[/] [dim]({count})[/]"),
                     (0, 4),
                 )
             )
+            if desc:
+                items.append(Padding(Text.from_markup(f"[dim]{desc}[/]"), (0, 6)))
             for rel in sorted(by_class[cls_name]):
                 items.append(Padding(Text.from_markup(f"[cyan]{rel}[/]"), (0, 6)))
             items.append(Text(""))
@@ -492,16 +419,20 @@ def classify_here_view(workspace: dict[str, Any], payload: dict[str, Any], *, le
     items.append(_next_step_block(workspace))
     items.append(Text(""))
 
-    items.append(Padding(Rule(style="dim"), (0, 2)))
+    # Rule separates: blank above, blank below (spec 0014).
+    items.append(_rule())
+    items.append(Text(""))
 
     scan = payload.get("scan", {})
     duration = scan.get("duration_seconds", "?")
-    meta_str = f"[dim]scan {duration}s[/dim]"
-    items.append(Padding(Text.from_markup(meta_str), (0, 2)))
+    items.append(Padding(Text.from_markup(f"[dim]scan {duration}s[/dim]"), (0, 2)))
 
     if legend:
         items.append(Text(""))
         items.append(_classify_legend_block())
+
+    # Trailing blank line so the next shell prompt has air (spec 0014).
+    items.append(Text(""))
 
     return Group(*items)
 
@@ -515,7 +446,7 @@ def _classify_tree_summary(payload: dict[str, Any]) -> str:
     sync_summary = (
         f"[bold]In synced tree:[/bold] {in_sync}/{len(workspaces)}"
         if not unknown
-        else f"[dim]Sync placement unknown for {unknown}/{len(workspaces)} (autodetect / CLAIN_SYNCED_ROOT)[/dim]"
+        else f"[dim]Sync placement unknown for {unknown}/{len(workspaces)} (autodetect off on this platform)[/dim]"
     )
     return (
         f"[bold]Workspaces:[/bold] {len(workspaces)}  "
@@ -535,10 +466,13 @@ def classify_tree_view(payload: dict[str, Any], *, legend: bool) -> Group:
     items.append(_orientation("clain classify  →  multi-workspace classification"))
     items.append(Text(""))
     items.append(Padding(classify_table(payload), (0, 1)))
+    items.append(Text(""))
     items.append(Padding(Text.from_markup(_classify_tree_summary(payload)), (0, 2)))
     if legend:
         items.append(Text(""))
         items.append(_classify_legend_block())
+    # Trailing blank line (spec 0014).
+    items.append(Text(""))
     return Group(*items)
 
 
@@ -634,6 +568,10 @@ def plan_view(
         items.append(_plan_legend_block())
         items.append(Text(""))
 
-    items.append(Padding(Rule(style="dim"), (0, 2)))
+    # Rule separates: blank line above and below (spec 0014).
+    items.append(_rule())
+    items.append(Text(""))
     items.append(_plan_meta_block(plan, saved_path, mode=mode))
+    # Trailing blank line (spec 0014).
+    items.append(Text(""))
     return Group(*items)
