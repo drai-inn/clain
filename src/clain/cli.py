@@ -178,7 +178,9 @@ def classify(
         ws_payload = payload["workspaces"][0]
         console.print(classify_here_view(ws_payload, payload, legend=legend_on))
         if cache_hit:
-            console.print("[dim](cached — pass --refresh to rescan)[/dim]")
+            # Meta line: deliberate aside, indented to body (spec 0014).
+            console.print("  [dim](cached — pass --refresh to rescan)[/dim]")
+            console.print("")
         return
 
     if workspace is not None:
@@ -194,7 +196,9 @@ def classify(
 
     console.print(classify_tree_view(payload, legend=legend_on))
     if cache_hit:
-        console.print("[dim](cached — pass --refresh to rescan)[/dim]")
+        # Meta line: deliberate aside, indented to body (spec 0014).
+        console.print("  [dim](cached — pass --refresh to rescan)[/dim]")
+        console.print("")
 
 
 def _load_classify_or_exit(resolved: Path) -> dict[str, object]:
@@ -246,7 +250,9 @@ def _emit_plan(
 
     if dry:
         if not json_out:
-            console.print("[dim](dry mode — execution skipped)[/dim]")
+            # Meta line: deliberate aside, indented to body (spec 0014).
+            console.print("  [dim](dry mode — execution skipped)[/dim]")
+            console.print("")
         return
 
     # Execution path. Currently always blocked by the phase gate.

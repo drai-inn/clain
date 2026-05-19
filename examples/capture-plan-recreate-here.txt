@@ -36,7 +36,9 @@ clain plan recreate --here --dry  →  delete-and-recreate plan
              ✗ — something blocks safe execution; run `clain plan explain     
              <ACTION_ID>` for the reason                                      
 
-  ──────────────────────────────────────────────────────────────────────────  
+  ────────────────────────────────────────────────────────────────────────
+
   Summary  1 workspace  ·  7 actions  ·  0 unsafe                             
   Saved    $XDG_STATE_HOME/clain/plans/recreate-<UTC>.json                    
   Mode     dry-run (execution gate is closed — see executor.py)               
+

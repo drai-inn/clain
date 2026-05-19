@@ -21,8 +21,42 @@ def root_hash(root: Path) -> str:
     return hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:16]
 
 
-def classify_cache_path(root: Path) -> Path:
-    return clain_state_dir() / "classify" / f"{root_hash(root)}.json"
+def classify_cache_path(root: Path, schema: int) -> Path:
+    """Schema-versioned cache filename (spec 0014).
+
+    The schema version is part of the filename so a binary that bumped the
+    classify schema doesn't read stale caches written by an older binary.
+    Old-schema files at the same `<root-hash>` are cleaned up by
+    `prune_stale_classify_caches` when the new path is accessed.
+    """
+    return clain_state_dir() / "classify" / f"{root_hash(root)}-v{schema}.json"
+
+
+def prune_stale_classify_caches(root: Path, current_schema: int) -> list[Path]:
+    """Remove any classify cache files for `root` whose schema isn't current.
+
+    Returns the list of removed paths (caller may log; tests use it as a
+    machine-checkable signal). Best-effort: missing-file races are ignored,
+    other OSError surfaces (so a permission problem becomes visible).
+    """
+    classify_dir = clain_state_dir() / "classify"
+    if not classify_dir.exists():
+        return []
+    h = root_hash(root)
+    current = classify_dir / f"{h}-v{current_schema}.json"
+    removed: list[Path] = []
+    # Match both the legacy unsuffixed file and any other -v<N>.json file
+    # for this root hash.
+    candidates = [classify_dir / f"{h}.json", *classify_dir.glob(f"{h}-v*.json")]
+    for path in candidates:
+        if path == current or not path.exists():
+            continue
+        try:
+            path.unlink()
+            removed.append(path)
+        except FileNotFoundError:
+            pass
+    return removed
 
 
 def plan_dir() -> Path:

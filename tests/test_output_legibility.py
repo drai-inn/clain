@@ -94,13 +94,16 @@ def test_classify_here_view_next_step_block(tmp_path: Path) -> None:
 def test_classify_here_view_includes_legend_when_on(tmp_path: Path) -> None:
     payload = _build_here_payload(tmp_path)
     text = _cap(classify_here_view(payload["workspaces"][0], payload, legend=True))
-    assert "Key:" in text
+    # Spec 0014: Key is the block-form header (no colon) — consistent across views.
+    assert any(line.strip() == "Key" for line in text.splitlines())
+    assert "cache-managed" in text
 
 
 def test_classify_here_view_excludes_legend_when_off(tmp_path: Path) -> None:
     payload = _build_here_payload(tmp_path)
     text = _cap(classify_here_view(payload["workspaces"][0], payload, legend=False))
-    assert "Key:" not in text
+    # No Key header at all when legend is off.
+    assert not any(line.strip() == "Key" for line in text.splitlines())
 
 
 # --- classify_tree_view ----------------------------------------------------------
@@ -117,8 +120,8 @@ def test_classify_tree_view_orientation_and_default_no_legend(tmp_path: Path) ->
     assert "multi-workspace classification" in text
     # Existing classify_table title still present.
     assert "Workspace classification" in text
-    # No Key in tree mode by default.
-    assert "Key:" not in text
+    # No Key in tree mode by default (spec 0014: block-form Key header).
+    assert not any(line.strip() == "Key" for line in text.splitlines())
 
 
 def test_classify_tree_view_with_legend_shows_key(tmp_path: Path) -> None:
@@ -127,7 +130,9 @@ def test_classify_tree_view_with_legend_shows_key(tmp_path: Path) -> None:
     make_pixi_workspace(root, "one")
     payload = cls.run_classify(root)
     text = _cap(classify_tree_view(payload, legend=True))
-    assert "Key:" in text
+    # Spec 0014: Key is block-form, matches the plan view.
+    assert any(line.strip() == "Key" for line in text.splitlines())
+    assert "cache-managed" in text
 
 
 # --- plan_view ------------------------------------------------------------------

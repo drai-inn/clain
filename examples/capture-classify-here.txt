@@ -7,11 +7,13 @@ clain classify --here  →  one-workspace classification
 
   Regenerable subtrees (6):                                                   
 
-    cache-managed (1)   Lives in a per-ecosystem store. Safe to delete if     
-    you can re-install — your manifest tells clain how.                       
+    cache-managed (1)                                                         
+      Lives in a per-ecosystem store. Safe to delete if you can               
+      re-install — your manifest tells clain how.                             
       .pixi                                                                   
 
-    bytecode (5)   Regenerated automatically on the next run.                 
+    bytecode (5)                                                              
+      Regenerated automatically on the next run.                              
       .mypy_cache                                                             
       .pytest_cache                                                           
       .ruff_cache                                                             
@@ -22,8 +24,12 @@ clain classify --here  →  one-workspace classification
     clain plan recreate --here --dry                                          
     → would run: pixi install  (derived from pixi.toml)                       
 
-  ──────────────────────────────────────────────────────────────────────────  
-  scan 0.004s                                                                 
+  ────────────────────────────────────────────────────────────────────────
 
-  Key:  cache-managed regenerable from a manifest  ·  bytecode regenerated    
-  on use  ·  ephemeral build output                                           
+  scan 0.003s                                                                 
+
+  Key                                                                         
+    cache-managed  regenerable from a manifest                                
+    bytecode       regenerated automatically on use                           
+    ephemeral      build output, regenerable by the build step                
+
