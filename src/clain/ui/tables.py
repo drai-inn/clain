@@ -17,6 +17,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from clain.ui.banner import anchor_block
+from clain.ui.intent import identity_for
 from clain.ui.rhythm import BODY_INDENT, META_INDENT, RULE_WIDTH
 from clain.ui.theme import Theme, get_theme
 
@@ -92,7 +94,7 @@ def plan_table_flat(plan: dict[str, Any]) -> Table:
         header_style="bold",
     )
     table.add_column("Workspace", style=theme.accent)
-    table.add_column("Type", style=theme.safe)
+    table.add_column("Action", style=theme.safe)
     table.add_column("Class", style=theme.class_cache_managed)
     table.add_column("Target", overflow="fold")
     table.add_column("Command(s)", overflow="fold")
@@ -103,7 +105,7 @@ def plan_table_flat(plan: dict[str, Any]) -> Table:
         cmds = "\n".join(a.get("commands", []) or ["—"])
         table.add_row(
             a.get("workspace", "?"),
-            a.get("type", "?"),
+            a.get("action", "?"),
             a.get("class", "?"),
             a.get("target", "?"),
             cmds,
@@ -173,7 +175,7 @@ def plan_panels(plan: dict[str, Any]) -> list[Panel]:
         ws = a.get("workspace", "?")
         grouped[ws].append(a)
         # Heuristic fallback: the recreate action's target IS the workspace root.
-        if a.get("type") == "recreate" and ws not in workspace_paths:
+        if a.get("action") == "recreate" and ws not in workspace_paths:
             workspace_paths[ws] = a.get("target", "")
 
     panels: list[Panel] = []
@@ -188,7 +190,7 @@ def plan_panels(plan: dict[str, Any]) -> list[Panel]:
             padding=(0, 1),
             expand=True,
         )
-        table.add_column("Type", style=theme.safe, no_wrap=True)
+        table.add_column("Action", style=theme.safe, no_wrap=True)
         table.add_column("Class", style=theme.class_cache_managed, no_wrap=True)
         table.add_column("Target", style=theme.accent, overflow="fold")
         table.add_column("Command(s)", overflow="fold")
@@ -199,7 +201,7 @@ def plan_panels(plan: dict[str, Any]) -> list[Panel]:
             target = _relativise_target(a.get("target", "?"), location)
             cmds = [_relativise_command(c, location) for c in a.get("commands", [])]
             table.add_row(
-                a.get("type", "?"),
+                a.get("action", "?"),
                 a.get("class", "?"),
                 target,
                 "\n".join(cmds) or "—",
@@ -236,12 +238,12 @@ def unsafe_actions_table(plan: dict[str, Any]) -> Table | None:
         header_style="bold",
     )
     table.add_column("Workspace", style=theme.accent)
-    table.add_column("Type")
+    table.add_column("Action")
     table.add_column("Reason", style=theme.unsafe, overflow="fold")
     for a in unsafe:
         table.add_row(
             a.get("workspace", "?"),
-            a.get("type", "?"),
+            a.get("action", "?"),
             a.get("unsafe_reason", "(no reason given)"),
         )
     return table
@@ -306,7 +308,13 @@ def _sync_placement_line(sp: dict[str, Any] | None) -> str:
 
 
 def _orientation(line: str) -> Text:
-    """One-line orientation header above every primary output."""
+    """DEPRECATED — kept as a no-arg shim for any external import path.
+
+    Spec 0016 replaced the command-restate header with a meter + emoji + intent
+    anchor block (`anchor_block(identity_for(...))`). New call sites use that;
+    this function remains only because removing exports from `tables.py` is
+    its own follow-up.
+    """
     theme = get_theme()
     return Text.from_markup(f"[bold {theme.brand}]{line}[/]")
 
@@ -395,8 +403,7 @@ def classify_here_view(workspace: dict[str, Any], payload: dict[str, Any], *, le
     """
     theme = get_theme()
     items: list[RenderableType] = []
-    items.append(_orientation("clain classify --here  →  one-workspace classification"))
-    items.append(Text(""))
+    items.append(anchor_block(identity_for("classify_here")))
 
     header = Table(box=None, show_header=False, padding=(0, 1), pad_edge=False)
     header.add_column(style="dim", no_wrap=True)
@@ -492,8 +499,7 @@ def classify_tree_view(payload: dict[str, Any], *, legend: bool) -> Group:
     and structured meta footer; optional legend.
     """
     items: list[RenderableType] = []
-    items.append(_orientation("clain classify  →  multi-workspace classification"))
-    items.append(Text(""))
+    items.append(anchor_block(identity_for("classify_tree")))
     items.append(Padding(classify_table(payload), (0, 1)))
     items.append(Text(""))
     items.append(Padding(Text.from_markup(_classify_tree_summary(payload)), (0, 2)))
@@ -512,7 +518,7 @@ def _plan_legend_block() -> RenderableType:
     legend.add_column(style="bold dim", no_wrap=True)
     legend.add_column(overflow="fold")
     legend.add_row(
-        "Type",
+        "Action",
         f"[{theme.safe}]delete[/] · [{theme.safe}]recreate[/] · [{theme.safe}]move[/] · [{theme.safe}]smoke-test[/]",
     )
     legend.add_row(
@@ -572,13 +578,17 @@ def plan_view(
     """
     items: list[RenderableType] = []
     kind = plan.get("kind", "plan")
-    here_part = " --here" if plan.get("summary", {}).get("workspace_count", 0) == 1 else ""
-    label = {
-        "recreate": "delete-and-recreate plan",
-        "move": "move-and-triage plan",
-    }.get(kind, f"{kind} plan")
-    items.append(_orientation(f"clain plan {kind}{here_part} --dry  →  {label}"))
-    items.append(Text(""))
+    # Map (kind, mode) → command-identity key. The execute-side keys are
+    # available for when the gate lifts; today every render is dry-ish.
+    is_dry = "dry" in mode.lower()
+    key_map = {
+        ("recreate", True): "plan_recreate_dry",
+        ("recreate", False): "plan_recreate_exec",
+        ("move", True): "plan_move_dry",
+        ("move", False): "plan_move_exec",
+    }
+    identity_key = key_map.get((kind, is_dry), "plan_recreate_dry")
+    items.append(anchor_block(identity_for(identity_key)))
 
     unsafe = unsafe_actions_table(plan)
     if unsafe is not None:

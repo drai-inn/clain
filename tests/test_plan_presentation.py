@@ -124,7 +124,7 @@ def test_plan_panels_long_value_wraps() -> None:
         {
             "id": "long11111111",
             "workspace": "alpha",
-            "type": "delete",
+            "action": "delete",
             "target": f"/fixture/dev/alpha/{long_rel}",
             "class": "bytecode",
             "rationale": "x",
@@ -148,8 +148,8 @@ def test_plan_panels_long_value_wraps() -> None:
 
 def test_location_for_workspace_typical(tmp_path: Path) -> None:
     actions = [
-        {"target": "/fixture/dev/alpha/node_modules", "type": "delete"},
-        {"target": "/fixture/dev/alpha", "type": "recreate"},
+        {"target": "/fixture/dev/alpha/node_modules", "action": "delete"},
+        {"target": "/fixture/dev/alpha", "action": "recreate"},
     ]
     assert _location_for_workspace(actions, "/fallback") == "/fixture/dev/alpha"
 
@@ -157,8 +157,8 @@ def test_location_for_workspace_typical(tmp_path: Path) -> None:
 def test_location_for_workspace_disjoint_falls_back() -> None:
     """Disjoint-tree fallback: when commonpath returns / or non-prefix, use fallback."""
     actions = [
-        {"target": "/totally/different/place", "type": "delete"},
-        {"target": "/another/elsewhere", "type": "delete"},
+        {"target": "/totally/different/place", "action": "delete"},
+        {"target": "/another/elsewhere", "action": "delete"},
     ]
     assert _location_for_workspace(actions, "/fixture/dev/alpha") == "/fixture/dev/alpha"
 
@@ -178,7 +178,7 @@ def test_plan_panels_disjoint_tree_falls_back_to_workspace_path() -> None:
             {
                 "id": "x1",
                 "workspace": "weird",
-                "type": "recreate",
+                "action": "recreate",
                 "target": "/fixture/dev/weird",
                 "class": "cache-managed",
                 "rationale": "x",
@@ -190,7 +190,7 @@ def test_plan_panels_disjoint_tree_falls_back_to_workspace_path() -> None:
             {
                 "id": "x2",
                 "workspace": "weird",
-                "type": "delete",
+                "action": "delete",
                 "target": "/totally/disjoint/elsewhere",
                 "class": "ephemeral",
                 "rationale": "x",

@@ -1,6 +1,6 @@
                                      Plan: recreate (3 actions)                                     
 ┏━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
-┃ Workspace ┃ Type     ┃ Class         ┃ Target                  ┃ Command(s)              ┃ Safe? ┃
+┃ Workspace ┃ Action   ┃ Class         ┃ Target                  ┃ Command(s)              ┃ Safe? ┃
 ┡━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
 │ alpha     │ delete   │ cache-managed │ /fixture/dev/alpha/node │ rm -rf                  │   ✓   │
 │           │          │               │ _modules                │ '/fixture/dev/alpha/nod │       │

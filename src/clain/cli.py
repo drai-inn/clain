@@ -17,6 +17,16 @@ from clain.config import (
 from clain.console import console, err_console
 from clain.executor import EXECUTE_ENABLED, ExecuteGateClosed, try_execute
 from clain.state import read_json
+from clain.ui.banner import (
+    ENV_VAR as BANNER_ENV_VAR,
+)
+from clain.ui.banner import (
+    InvalidBannerValue,
+    env_banner_value,
+    mark_banner_shown,
+    render_banner,
+    should_show_banner,
+)
 from clain.ui.errors import user_error
 from clain.ui.legend import ENV_VAR as LEGEND_ENV_VAR
 from clain.ui.legend import InvalidLegendValue, should_show_legend
@@ -193,6 +203,12 @@ def classify(
     ),
     legend: bool = typer.Option(False, "--legend", help="Force the legend on (default for --here)."),
     no_legend: bool = typer.Option(False, "--no-legend", help="Force the legend off (default for tree mode)."),
+    banner: bool = typer.Option(False, "--banner", help="Force the first-run ASCII banner on (e.g. for screenshots)."),
+    no_banner: bool = typer.Option(
+        False,
+        "--no-banner",
+        help="Force the first-run banner off (default for non-first invocations).",
+    ),
     refresh: bool = typer.Option(False, "--refresh", help="Force a fresh scan."),
     no_cache: bool = typer.Option(False, "--no-cache", help="Skip cache for this run."),
 ) -> None:
@@ -210,7 +226,30 @@ def classify(
         )
         raise typer.Exit(code=2)
 
+    if banner and no_banner:
+        # error template OK — mutex callout.
+        err_console.print("[red]--banner and --no-banner are mutually exclusive.[/red]")
+        raise typer.Exit(code=2)
+
     legend_on = _resolve_legend(here=here, legend=legend, no_legend=no_legend)
+    banner_flag: bool | None
+    if banner:
+        banner_flag = True
+    elif no_banner:
+        banner_flag = False
+    else:
+        banner_flag = None
+    try:
+        show_banner = should_show_banner(flag=banner_flag, env=env_banner_value(), json_mode=json_out)
+    except InvalidBannerValue as exc:
+        err_console.print(
+            user_error(
+                what=str(exc),
+                why=f"`{BANNER_ENV_VAR}` accepts `on` or `off` (case-insensitive).",
+                fix=f"unset {BANNER_ENV_VAR}    # or set it to on/off explicitly",
+            )
+        )
+        raise typer.Exit(code=2) from exc
 
     resolved = (root or Path.cwd()).expanduser().resolve() if here else _resolve_or_exit(root)
 
@@ -245,6 +284,13 @@ def classify(
         sys.stdout.write(json.dumps(payload, indent=2, sort_keys=True))
         sys.stdout.write("\n")
         return
+
+    if show_banner:
+        console.print(render_banner())
+        # Only persist the marker once the banner actually rendered, so
+        # `--banner` for screenshots doesn't consume the user's real first-run.
+        if banner_flag is not True:
+            mark_banner_shown()
 
     if here:
         ws_payload = payload["workspaces"][0]
@@ -459,6 +505,8 @@ def plan_explain(
     from clain.state import plan_dir as plan_state_dir
 
     if plan_file is None:
+        # Spec 0016 schema-versioned filenames live alongside any legacy ones;
+        # `sorted(*.json)` keeps "most recent by UTC stamp" ordering.
         candidates = sorted(plan_state_dir().glob("*.json"))
         if not candidates:
             err_console.print(
@@ -481,6 +529,22 @@ def plan_explain(
                 what=f"Could not read plan: {plan_file}.",
                 why="The file is missing, unreadable, or not valid JSON.",
                 fix=f"ls -la {plan_file.parent}    # confirm the file exists; re-run plan if it's gone",
+            )
+        )
+        raise typer.Exit(code=2)
+    # Spec 0016: plan schema bumped to 2. Refuse to interpret older saved plans
+    # — the `type → action` rename means the old field name won't be found
+    # anyway; a clear regenerate-prompt beats a silent "action not found".
+    plan_schema = data.get("schema")
+    if isinstance(plan_schema, int) and plan_schema != planmod.SCHEMA_VERSION:
+        err_console.print(
+            user_error(
+                what=f"Plan was saved by an older clain (schema {plan_schema}); current is {planmod.SCHEMA_VERSION}.",
+                why=(
+                    "The plan JSON format changed in spec 0016 (`type` → `action`). "
+                    "Old plans aren't loaded; regenerate from a fresh classify cache."
+                ),
+                fix="clain plan recreate    # or `clain plan move --dest …` to write a fresh plan",
             )
         )
         raise typer.Exit(code=2)

@@ -22,15 +22,24 @@ from pathlib import Path
 from typing import Any
 
 from clain.rules_loader import Placement, RecreateRule, Rules, load_rules
-from clain.state import plan_dir, utc_now_filename_stamp, utc_now_iso, write_json
+from clain.state import (
+    plan_dir,
+    prune_stale_plan_files,
+    utc_now_filename_stamp,
+    utc_now_iso,
+    write_json,
+)
 
-SCHEMA_VERSION = 1
+# Spec 0016: bumped from 1 → 2 alongside the `type → action` field rename. Old
+# plan files written with schema 1 are no longer loadable by plan explain; the
+# user must regenerate via `clain plan recreate`.
+SCHEMA_VERSION = 2
 
 
 @dataclass
 class Action:
     workspace: str
-    type: str  # "delete" | "recreate" | "move" | "smoke-test"
+    action: str  # "delete" | "recreate" | "move" | "smoke-test"
     target: str
     cls: str
     rationale: str
@@ -41,14 +50,14 @@ class Action:
 
     @property
     def id(self) -> str:
-        h = hashlib.sha256(f"{self.workspace}|{self.type}|{self.target}".encode()).hexdigest()
+        h = hashlib.sha256(f"{self.workspace}|{self.action}|{self.target}".encode()).hexdigest()
         return h[:12]
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "workspace": self.workspace,
-            "type": self.type,
+            "action": self.action,
             "target": self.target,
             "class": self.cls,
             "rationale": self.rationale,
@@ -112,7 +121,7 @@ def build_recreate_plan(classify_payload: dict[str, Any], rules: Rules | None = 
             actions.append(
                 Action(
                     workspace=ws["name"],
-                    type="delete",
+                    action="delete",
                     target=target,
                     cls=cls,
                     rationale=rationale,
@@ -125,7 +134,7 @@ def build_recreate_plan(classify_payload: dict[str, Any], rules: Rules | None = 
                 actions.append(
                     Action(
                         workspace=ws["name"],
-                        type="recreate",
+                        action="recreate",
                         target=str(ws.get("path", "")),
                         cls=cls,
                         rationale=rationale,
@@ -186,7 +195,7 @@ def build_move_plan(
         actions.append(
             Action(
                 workspace=ws["name"],
-                type="smoke-test",
+                action="smoke-test",
                 target=source,
                 cls="workspace-source",
                 rationale="Integrity scan over manifests + integrity files at workspace root.",
@@ -198,7 +207,7 @@ def build_move_plan(
         actions.append(
             Action(
                 workspace=ws["name"],
-                type="move",
+                action="move",
                 target=destination,
                 cls="workspace-source",
                 rationale=(
@@ -242,8 +251,16 @@ def _wrap_plan(
 
 
 def persist_plan(plan: dict[str, Any]) -> Path:
+    """Write the plan to `$XDG_STATE_HOME/clain/plans/<kind>-<UTC>-v<schema>.json`.
+
+    Spec 0016: filename includes the schema version (matching the spec-0014
+    classify-cache pattern). Before writing, prune any stale-schema plan files
+    older than the grace window so the disk doesn't accumulate dead plans.
+    """
     kind = plan.get("kind", "plan")
+    schema = int(plan.get("schema", SCHEMA_VERSION))
     stamp = utc_now_filename_stamp()
-    out = plan_dir() / f"{kind}-{stamp}.json"
+    out = plan_dir() / f"{kind}-{stamp}-v{schema}.json"
+    prune_stale_plan_files(current_schema=SCHEMA_VERSION)
     write_json(out, plan)
     return out
