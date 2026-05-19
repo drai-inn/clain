@@ -34,7 +34,7 @@ def fake_root(tmp_path: Path) -> Path:
 
 
 def test_classify_finds_all_four_classes(fake_root: Path) -> None:
-    payload = cls.run_classify(fake_root, fake_root)
+    payload = cls.run_classify(fake_root)
     workspaces = {w["name"]: w for w in payload["workspaces"]}
 
     alpha_tags = {(t["class"], t["relative_path"]) for t in workspaces["alpha-node"]["class_tags"]}
@@ -48,36 +48,60 @@ def test_classify_finds_all_four_classes(fake_root: Path) -> None:
 
 
 def test_classify_records_manifests_at_workspace_root(fake_root: Path) -> None:
-    payload = cls.run_classify(fake_root, fake_root)
+    payload = cls.run_classify(fake_root)
     workspaces = {w["name"]: w for w in payload["workspaces"]}
     assert "pnpm-lock.yaml" in workspaces["alpha-node"]["manifests"]
     assert "pixi.toml" in workspaces["beta-pixi"]["manifests"]
     assert "uv.lock" in workspaces["gamma-uv"]["manifests"]
 
 
-def test_classify_in_sync_tree_flag(tmp_path: Path) -> None:
-    synced = tmp_path / "synced-root"
-    synced.mkdir()
-    local = tmp_path / "local-dev"
-    local.mkdir()
-    make_node_workspace(synced, "inside", lockfile="pnpm-lock.yaml")
-    make_node_workspace(local, "outside", lockfile="pnpm-lock.yaml")
+def test_classify_in_sync_tree_synced_via_autodetect(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Spec 0013: a workspace autodetected as synced gets in_sync_tree=True.
 
-    payload_synced = cls.run_classify(synced, synced)
-    assert payload_synced["workspaces"][0]["in_sync_tree"] is True
+    We don't write to ~/Library/CloudStorage; we monkeypatch the detector to
+    return ("synced", ...) for the fixture path. The classify pipeline
+    consumes that the same way it would a real autodetect hit.
+    """
+    monkeypatch.setattr(
+        "clain.classify.detect_synced_storage",
+        lambda _path, **_kw: ("synced", "Google Drive", "/fake/CloudStorage/GoogleDrive-x"),
+    )
+    root = tmp_path / "dev"
+    root.mkdir()
+    make_node_workspace(root, "inside", lockfile="pnpm-lock.yaml")
+    payload = cls.run_classify(root)
+    ws = payload["workspaces"][0]
+    assert ws["in_sync_tree"] is True
+    assert ws["sync_placement"]["state"] == "synced"
+    assert ws["sync_placement"]["provider"] == "Google Drive"
+    assert ws["sync_placement"]["source"] == "autodetect"
+    assert ws["sync_placement"]["synced_root"] == "/fake/CloudStorage/GoogleDrive-x"
 
-    payload_local = cls.run_classify(local, synced)
-    assert payload_local["workspaces"][0]["in_sync_tree"] is False
 
+def test_classify_in_sync_tree_resolved_via_autodetect_on_macos(tmp_path: Path) -> None:
+    """Spec 0013: with no env var (CLAIN_SYNCED_ROOT removed), autodetect runs.
 
-def test_classify_in_sync_tree_is_null_when_synced_root_unset(tmp_path: Path) -> None:
-    """Spec 0009: synced_root=None ⇒ in_sync_tree is None (unknown)."""
+    A tmp_path lives under /private/var/folders — not in any known
+    synced-storage tree — so autodetect resolves to "local" and
+    in_sync_tree becomes False on macOS. Off-macOS, it's "unknown".
+    """
     root = tmp_path / "dev"
     root.mkdir()
     make_node_workspace(root, "alpha", lockfile="pnpm-lock.yaml")
-    payload = cls.run_classify(root, None)
-    assert payload["workspaces"][0]["in_sync_tree"] is None
-    assert payload["scan"]["synced_root"] is None
+    payload = cls.run_classify(root)
+    ws0 = payload["workspaces"][0]
+    import sys
+
+    if sys.platform == "darwin":
+        assert ws0["in_sync_tree"] is False
+        assert ws0["sync_placement"]["state"] == "local"
+        assert ws0["sync_placement"]["source"] == "autodetect"
+    else:
+        assert ws0["in_sync_tree"] is None
+        assert ws0["sync_placement"]["state"] == "unknown"
+        assert ws0["sync_placement"]["source"] == "unset"
+    # The scan block no longer carries `synced_root` (CLAIN_SYNCED_ROOT was removed).
+    assert "synced_root" not in payload["scan"]
 
 
 def test_classify_prunes_class_dirs(tmp_path: Path) -> None:
@@ -90,7 +114,7 @@ def test_classify_prunes_class_dirs(tmp_path: Path) -> None:
     deep.mkdir(parents=True)
     write_file(deep / "marker.txt", "should not be visited")
 
-    payload = cls.run_classify(root, root)
+    payload = cls.run_classify(root)
     tags = [t["relative_path"] for t in payload["workspaces"][0]["class_tags"]]
     # Only the top-level node_modules should be tagged; no recursion into it.
     assert tags == ["node_modules"]
@@ -139,6 +163,21 @@ def test_no_personal_info_in_config_defaults() -> None:
                 )
 
 
+def test_clain_synced_root_env_is_hard_error(fake_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Spec 0013: CLAIN_SYNCED_ROOT was removed. If set, any subcommand exits
+    non-zero before doing anything, with a Rich error naming the spec.
+    """
+    monkeypatch.setenv("CLAIN_SYNCED_ROOT", "/anything/at/all")
+    result = runner.invoke(app, ["classify", str(fake_root), "--no-cache"])
+    assert result.exit_code != 0
+    # Error must name the env var and point at the spec.
+    combined = result.output + (result.stderr or "")
+    assert "CLAIN_SYNCED_ROOT" in combined
+    assert "0013" in combined
+    # Suggest the fix.
+    assert "unset" in combined.lower()
+
+
 def test_classify_module_does_not_modify_root(fake_root: Path) -> None:
     def tree_signature(p: Path) -> str:
         h = hashlib.sha256()
@@ -151,6 +190,6 @@ def test_classify_module_does_not_modify_root(fake_root: Path) -> None:
         return h.hexdigest()
 
     before = tree_signature(fake_root)
-    cls.run_classify(fake_root, fake_root)
+    cls.run_classify(fake_root)
     after = tree_signature(fake_root)
     assert before == after

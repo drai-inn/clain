@@ -57,7 +57,7 @@ def test_pixi_stops_recursion(tmp_path: Path) -> None:
     deep.mkdir(parents=True)
     write_file(deep / "marker.pyc", "should not be visited")
 
-    payload = cls.run_classify(root, None)
+    payload = cls.run_classify(root)
     ws_payload = payload["workspaces"][0]
     tags = ws_payload["class_tags"]
     # Exactly one .pixi tag, no deep __pycache__ tags.
@@ -83,7 +83,7 @@ def test_git_is_pruned(tmp_path: Path) -> None:
     inside_git = ws / ".git" / "node_modules"
     inside_git.mkdir(parents=True)
 
-    payload = cls.run_classify(root, None)
+    payload = cls.run_classify(root)
     tags = payload["workspaces"][0]["class_tags"]
     paths = [t["relative_path"] for t in tags]
     assert all(".git" not in p for p in paths), f"`.git` leaked into class_tags: {paths}"
@@ -105,7 +105,7 @@ def test_bare_venv_with_pyvenv_cfg_is_workspace_source(tmp_path: Path) -> None:
     venv_lib = venv / "lib" / "python3.12" / "site-packages"
     venv_lib.mkdir(parents=True)
 
-    payload = cls.run_classify(root, None)
+    payload = cls.run_classify(root)
     tags = payload["workspaces"][0]["class_tags"]
     # No tag for bare "venv" itself. (site-packages inside it WILL match because
     # site-packages is still in the class list — but the bare venv directory
@@ -125,7 +125,7 @@ def test_pixi_class_against_real_pixi_workspace(tmp_path: Path) -> None:
     deep.mkdir(parents=True)
     write_file(deep / "__init__.py", "# stdlib venv module")
 
-    payload = cls.run_classify(root, None)
+    payload = cls.run_classify(root)
     tags = payload["workspaces"][0]["class_tags"]
     rels = [t["relative_path"] for t in tags]
     # .pixi caught at top level; nothing inside it surfaces.

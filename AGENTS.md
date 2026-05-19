@@ -17,7 +17,7 @@ What the developer expects you to do:
 1. Install dependencies: `pixi install`. Requires [Pixi](https://pixi.sh/) and Python 3.12+.
 2. **Pick the mode.** For the everyday "one project I'm currently in" case, use **single-workspace mode** by passing `--here`. For the historical "I have a tree of workspaces accumulated under a synced drive" case, use the default tree mode. Single-workspace mode is the recommended entry point.
 3. **Single-workspace mode:** `clain classify --here [PATH]` (defaults to cwd). Then `clain plan recreate --here [PATH] --dry`.
-4. **Tree mode:** the developer sets `CLAIN_DEV_ROOT` (or passes a path positionally). **There is no baked-in default** — you must not invent one. Optionally `CLAIN_SYNCED_ROOT` to enable in-sync detection.
+4. **Tree mode:** the developer sets `CLAIN_DEV_ROOT` (or passes a path positionally). **There is no baked-in default** — you must not invent one. Sync placement is autodetected on macOS against known synced-storage path patterns; off-macOS it's reported as unknown.
 5. **Always use `--dry`** on `plan` invocations unless the developer has explicitly authorised execution. Execution is gated regardless.
 6. Render the plan output (or the JSON via `--json`) for the developer to review. Surface the `unsafe_count` and any `unsafe_reason` strings prominently.
 Skills bundled in this repo (each shells out to the CLI — no business logic in the skill body):

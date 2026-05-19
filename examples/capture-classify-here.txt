@@ -1,13 +1,29 @@
-example-workspace  (~/dev/example-workspace)
-├── Manifests: pixi.toml, pyproject.toml
-├── Sync placement: ? unknown (CLAIN_SYNCED_ROOT not set)
-├── bytecode
-│   ├── .mypy_cache
-│   ├── .pytest_cache
-│   ├── .ruff_cache
-│   ├── src/example/__pycache__
-│   └── tests/__pycache__
-└── cache-managed
-    └── .pixi
+clain classify --here  →  one-workspace classification
 
-Next: clain plan recreate --here --dry  →  pixi install  scan 0.001s
+  Workspace:       example-workspace                                          
+  Location:        ~/dev/example-workspace                                    
+  Sync placement:  ✓ local  (no synced-storage pattern detected)              
+  Manifests:       pixi.toml, pyproject.toml                                  
+
+  Regenerable subtrees (6):                                                   
+
+    cache-managed (1)   Lives in a per-ecosystem store. Safe to delete if     
+    you can re-install — your manifest tells clain how.                       
+      .pixi                                                                   
+
+    bytecode (5)   Regenerated automatically on the next run.                 
+      .mypy_cache                                                             
+      .pytest_cache                                                           
+      .ruff_cache                                                             
+      src/example/__pycache__                                                 
+      tests/__pycache__                                                       
+
+  Next step:                                                                  
+    clain plan recreate --here --dry                                          
+    → would run: pixi install  (derived from pixi.toml)                       
+
+  ──────────────────────────────────────────────────────────────────────────  
+  scan 0.004s                                                                 
+
+  Key:  cache-managed regenerable from a manifest  ·  bytecode regenerated    
+  on use  ·  ephemeral build output                                           

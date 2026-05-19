@@ -176,7 +176,7 @@ def test_run_classify_single_mode_directly(tmp_path: Path) -> None:
     write_file(ws / "pyproject.toml", '[project]\nname="solo"\nversion="0.0.1"\n')
     (ws / ".pixi").mkdir()
 
-    payload = cls.run_classify(ws, None, single=True)
+    payload = cls.run_classify(ws, single=True)
     assert payload["scan"]["mode"] == "single"
     assert len(payload["workspaces"]) == 1
     assert payload["workspaces"][0]["name"] == "solo"
@@ -188,5 +188,5 @@ def test_run_classify_default_mode_remains_tree(tmp_path: Path) -> None:
     root.mkdir()
     make_pixi_workspace(root, "alpha")
 
-    payload = cls.run_classify(root, None)
+    payload = cls.run_classify(root)
     assert payload["scan"]["mode"] == "tree"
